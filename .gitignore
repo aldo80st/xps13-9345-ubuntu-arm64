@@ -1,0 +1,13 @@
+# Never commit system-specific or sensitive artifacts
+.local/
+*.log
+*.mbn
+*.mbn.zst
+*.der
+*.key
+*.pem
+*.p12
+*.pfx
+*.env
+.env*
+__pycache__/
