@@ -16,6 +16,10 @@ A Dell-extracted Qualcomm Adreno graphics firmware snapshot is documented by [va
 
 A safer long-term solution is correct vendor firmware packaging in `linux-firmware` / `qcom-firmware-extract`.
 
+## Official vendor provenance — independent check still pending
+Dell offers an [official XPS 13 9345-compatible Adreno package KPF2C (31.0.121.0, A09)](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=kpf2c), with package SHA-256 `83ca322727b86d80042fe06824cc4dcef705bab511d31aca4a25bbf741ee5d91`.
+An automated direct CDN request returned HTTP 403 on 2026-11-01; therefore **we have NOT independently extracted the candidate blob from this verified Dell package**. The staged file's checksum proves consistency with a third-party repo's published hash, not Dell's package authenticity. Prefer vendor-source verification before installing executable device firmware on a production laptop.
+
 ## Staging (unprivileged, no kernel changes)
 ```bash
 bash scripts/stage-qcom-iris.sh
