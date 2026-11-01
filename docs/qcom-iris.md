@@ -16,20 +16,33 @@ A Dell-extracted Qualcomm Adreno graphics firmware snapshot is documented by [va
 
 A safer long-term solution is correct vendor firmware packaging in `linux-firmware` / `qcom-firmware-extract`.
 
-## Official vendor provenance — independent check still pending
-Dell offers an [official XPS 13 9345-compatible Adreno package KPF2C (31.0.121.0, A09)](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=kpf2c), with package SHA-256 `83ca322727b86d80042fe06824cc4dcef705bab511d31aca4a25bbf741ee5d91`.
-An automated direct CDN request returned HTTP 403 on 2026-11-01; therefore **we have NOT independently extracted the candidate blob from this verified Dell package**. The staged file's checksum proves consistency with a third-party repo's published hash, not Dell's package authenticity. Prefer vendor-source verification before installing executable device firmware on a production laptop.
+## Official vendor provenance — verified 2026-11-01
+The user downloaded Dell's [official XPS 13 9345-compatible Adreno package KPF2C (31.0.121.0, A09)](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=kpf2c).
 
-## Staging (unprivileged, no kernel changes)
+- Package size: **77,489,432 bytes**
+- Package SHA-256: `83ca322727b86d80042fe06824cc4dcef705bab511d31aca4a25bbf741ee5d91` — **matches Dell's published checksum**.
+- The package is a signed PE32+ ARM64 Dell Update Package with a nested 7z payload. The package was **not executed**.
+- Ubuntu 26.10 ARM64 `7zip-standalone` (7zz 26.02) can extract the files without admin privileges.
+- Extracted `16299/Drivers/Drivers/qcdx8380/drivers/qcdx8380/qcvss8380.mbn`: **2,318,952 bytes**, SHA-256 `8e9d65ceeba183a2640d731e6c3fba6f27957529ab5f811ab78433306e3e7629`.
+- `cmp` confirms it is **byte-for-byte identical** to the previously staged community candidate.
+
+The provenance and content match are **verified**. Kernel installation, reboot and actual decoding tests are separate validation steps.
+
+## Staging official Dell package (unprivileged, no kernel changes)
+Download the official KPF2C installer yourself from Dell and then run:
 ```bash
-bash scripts/stage-qcom-iris.sh
+bash scripts/extract-official-qcom-iris.sh "$HOME/Descargas/Qualcomm-Adreno-X1-85-X1-45-Graphics-Driver_KPF2C_WINARM64_31.0.121.0_A09.EXE"
 ```
+This verifies the installer SHA-256, extracts its payload with locally staged 7zz (or your installed 7zz), and compares the IRIS firmware hash. No Windows EXE is executed.
+
+The historical `scripts/stage-qcom-iris.sh` can stage the third-party mirror for comparison, **but it is not sufficient for installation**.
 
 ## Install (explicit local administrator approval required)
 Review the script, then run from an interactive terminal:
 ```bash
 bash scripts/install-qcom-iris.sh
 ```
+
 This installs only the SHA-256-verified local file into
 `/lib/firmware/updates/qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn`
 using sudo. No raw blob is committed to this repo. Kernel firmware lookup uses `/lib/firmware/updates/` before the base firmware directory.

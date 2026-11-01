@@ -7,7 +7,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - EVDI 1.15 firmado con un certificado MOK inscrito, pero rechazado por el kernel.
 - `systemd-modules-load.service` falla al cargar EVDI.
 - DisplayLink D6000: servicio inactivo, historial de reinicios fallidos.
-- Falta el archivo `qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn` solicitado por IRIS.
+- Falta el archivo `qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn` solicitado por IRIS; **ya fue extraído del controlador oficial Dell y verificado contra el archivo comunitario**, pendiente instalación y pruebas tras reinicio.
 - Audio, Wi-Fi y cámara aparecen enumerados; esto **no** demuestra funcionamiento completo.
 
 ## Guías
