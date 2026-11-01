@@ -14,7 +14,7 @@
 | Problem | Evidence | Status | Documentation |
 | --- | --- | --- | --- |
 | DisplayLink D6000: EVDI fails under Secure Boot | `modprobe evdi`: Operation not permitted; service repeatedly fails | **Diagnosed; fix pending** | [EVDI/MOK](docs/secure-boot-evdi.md) |
-| Qualcomm IRIS video firmware | Missing `qcvss8380.mbn`, `-2` in journal | **Extracted from official Dell driver and verified identical to community candidate; installation pending** | [Video firmware](docs/qcom-iris.md) |
+| Qualcomm IRIS video firmware | Missing `qcvss8380.mbn`, `-2` in journal | **Official Dell firmware installed, hash-verified; post-reboot functional test pending** | [Video firmware](docs/qcom-iris.md) |
 | Fan control / thermal throttling | Kernel EC patch v8 published Oct 25, 2026 | **Upstream patch; not installed** | [Thermal control](docs/thermal-ec.md) |
 | Speaker channel mapping | PipeWire exposes FL/FR/RL/RR; real speaker output not fully validated | **Investigation** | [Audio](docs/audio.md) |
 
