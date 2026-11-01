@@ -5,7 +5,7 @@ The kernel requests `qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn` and gets `-2` 
 
 Upstream Ubuntu bug [2171351](https://go.mail-archive.com/ubuntu-bugs%40lists.ubuntu.com/msg6324429.html) documents an extractor omission on another Snapdragon Dell laptop.
 
-## Candidate (NOT YET INSTALLED / TESTED)
+## Vendor firmware — installed, real decoding not yet verified
 A Dell-extracted Qualcomm Adreno graphics firmware snapshot is documented by [valpackett/firmware-dell-qcom](https://github.com/valpackett/firmware-dell-qcom). The XPS 9345 entry points to the equivalent Latitude 7455 binary. The staged decompressed candidate from that repo was verified on 2026-11-01:
 
 - Source: `qcom/x1e80100/dell/latitude-7455/qcvss8380.mbn.zst` (December 2025 A10 driver)
@@ -26,7 +26,7 @@ The user downloaded Dell's [official XPS 13 9345-compatible Adreno package KPF2C
 - Extracted `16299/Drivers/Drivers/qcdx8380/drivers/qcdx8380/qcvss8380.mbn`: **2,318,952 bytes**, SHA-256 `8e9d65ceeba183a2640d731e6c3fba6f27957529ab5f811ab78433306e3e7629`.
 - `cmp` confirms it is **byte-for-byte identical** to the previously staged community candidate.
 
-The provenance and content match are **verified**. Kernel installation, reboot and actual decoding tests are separate validation steps.
+Provenance and binary integrity are **verified**. The firmware was installed and retained through a reboot; the codec is listed as a V4L2 H.264/HEVC/VP9/AV1 decoder. However, a GStreamer decode pipeline returned `not-negotiated`, so **real accelerated decoding remains unverified**. An initially attempted install under `/lib/firmware/updates/` caused a `pd-mapper` regression; [see the diagnosed and resolved issue](pd-mapper-overlay-regression.md).
 
 ## Staging official Dell package (unprivileged, no kernel changes)
 Download the official KPF2C installer yourself from Dell and then run:
@@ -43,9 +43,9 @@ Review the script, then run from an interactive terminal:
 bash scripts/install-qcom-iris.sh
 ```
 
-This installs only the SHA-256-verified local file into
-`/lib/firmware/updates/qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn`
-using sudo. No raw blob is committed to this repo. Kernel firmware lookup uses `/lib/firmware/updates/` before the base firmware directory.
+This installs the SHA-256-verified local file into the **base** location
+`/lib/firmware/qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn`
+using sudo. The base directory already contains `.jsn` descriptors required by `pd-mapper`. **Do not create an isolated `updates/` overlay on this device:** it shadows those maps and causes `pd-mapper.service` to fail. No proprietary firmware is committed to this repository.
 
 After a reboot, validate kernel logs and actual hardware decode. A missing firmware warning disappearing is **not** proof that decoding itself is functional.
 
