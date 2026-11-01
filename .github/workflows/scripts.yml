@@ -1,0 +1,23 @@
+name: Validate scripts
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts.yml"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - ".github/workflows/scripts.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shell-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bash syntax
+        run: |
+          for script in scripts/*.sh; do
+            bash -n "$script"
+          done
