@@ -1,18 +1,20 @@
-name: Validate scripts
+name: Validate scripts and sprint loop
 on:
   push:
     paths:
       - "scripts/**"
+      - "tests/**"
       - ".github/workflows/scripts.yml"
   pull_request:
     paths:
       - "scripts/**"
+      - "tests/**"
       - ".github/workflows/scripts.yml"
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  shell-syntax:
+  shell-and-python-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,3 +23,7 @@ jobs:
           for script in scripts/*.sh; do
             bash -n "$script"
           done
+      - name: Verify Python 3 is available
+        run: python3 --version
+      - name: Test sprint cycle safely (mocked hardware)
+        run: python3 -m unittest discover -v
