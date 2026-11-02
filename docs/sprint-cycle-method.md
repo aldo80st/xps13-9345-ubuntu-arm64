@@ -33,7 +33,9 @@ La adquisición usa una lista blanca de comandos sin shell ni permisos elevados,
 | `WAITING_RELEASE` | Se conoce corrección propuesta, pero no hay versión publicada verificable. |
 | `NOT_PLANNED` | Intervención descartada por redundante, innecesaria o insegura. |
 
-`external_actions_only` significa que **este ejecutor seguro no tiene acciones adicionales autorizadas**; no significa que todos los problemas estén solucionados. Los estados restantes pueden ser bloqueos de la plataforma, manuales o limitaciones deliberadas del alcance.
+`assistant_work_pending` significa que **el ejecutor llegó al límite de sus acciones, pero aún quedan investigaciones asignadas al asistente**. Este resultado no autoriza pedir al usuario que haga el trabajo técnico. `external_actions_only` se reserva para los casos en que todos los frentes restantes estén verificados, descartados o verdaderamente bloqueados por autorización, verificación física o dependencia externa demostrada.
+
+Cada issue incluye el campo tipado `next_owner` (`ASSISTANT`, `USER`, `UPSTREAM` o `NONE`); los informes muestran quién debe ejecutar el siguiente paso. Los reportes 000001–000004 se generaron antes de esta distinción y son históricos: consultar la iteración 000005 o posterior.
 
 ## Evidencia y privacidad
 

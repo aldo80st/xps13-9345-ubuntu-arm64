@@ -29,17 +29,26 @@ class DiagnosisTests(unittest.TestCase):
         self.assertNotIn('VERIFIED', [i['state'] for i in result.values()])
         self.assertEqual(result[8]['state'], 'NOT_PLANNED')
 
+    def test_unresolved_research_is_not_mislabeled_as_external_blocker(self):
+        items = self.issues({})
+        for number in (1, 2, 3, 4, 7):
+            self.assertEqual(items[number]['state'], 'INVESTIGATION_NEEDED')
+            self.assertEqual(items[number]['next_owner'], 'ASSISTANT')
+        self.assertEqual(items[5]['next_owner'], 'USER')
+        self.assertEqual(items[6]['next_owner'], 'USER')
+        self.assertEqual(items[8]['next_owner'], 'NONE')
+
     def test_dock_and_signature_do_not_prove_two_displays(self):
         issue = self.issues({'dock_present': True, 'evdi_signed': True,
                              'secure_boot': True})[1]
-        self.assertEqual(issue['state'], 'BLOCKED_USER')
+        self.assertEqual(issue['state'], 'INVESTIGATION_NEEDED')
         self.assertIn('hipótesis', issue['reason'])
         self.assertTrue(issue['acceptance'])
 
     def test_iris_enumeration_is_not_decode(self):
-        self.assertEqual(self.issues({'video_nodes': 1})[2]['state'], 'BLOCKED_UPSTREAM')
+        self.assertEqual(self.issues({'video_nodes': 1})[2]['state'], 'INVESTIGATION_NEEDED')
         self.assertEqual(self.issues({'iris_decode': 'passed'})[2]['state'], 'VERIFIED')
-        self.assertEqual(self.issues({'iris_decode': 'failed'})[2]['state'], 'BLOCKED_UPSTREAM')
+        self.assertEqual(self.issues({'iris_decode': 'failed'})[2]['state'], 'INVESTIGATION_NEEDED')
         self.assertEqual(self.issues({'iris_decode': 'permission'})[2]['state'], 'BLOCKED_USER')
 
     def test_pd_mapper_regression_has_all_four_gates(self):
@@ -54,8 +63,8 @@ class DiagnosisTests(unittest.TestCase):
     def test_unsafe_functional_checks_remain_blocked(self):
         issues = self.issues({'audio_cards': 2, 'ec_sensors': 4,
                               'dc_active': True, 'dc_processes': 1})
-        self.assertEqual(issues[3]['state'], 'BLOCKED_UPSTREAM')
-        self.assertEqual(issues[4]['state'], 'BLOCKED_UPSTREAM')
+        self.assertEqual(issues[3]['state'], 'INVESTIGATION_NEEDED')
+        self.assertEqual(issues[4]['state'], 'INVESTIGATION_NEEDED')
         self.assertEqual(issues[5]['state'], 'BLOCKED_USER')
         self.assertEqual(issues[6]['state'], 'BLOCKED_USER')
 
@@ -114,16 +123,16 @@ class RunnerTests(unittest.TestCase):
     def run_cycle(self, **kwargs):
         return cycle.run(self.root, self.output, collector=lambda: {}, **kwargs)
 
-    def test_complete_round_stops_when_only_external_work_remains(self):
+    def test_pending_assistant_investigations_cannot_masquerade_as_user_blockers(self):
         result = self.run_cycle()
-        self.assertEqual(result['stop_reason'], 'external_actions_only')
+        self.assertEqual(result['stop_reason'], 'assistant_work_pending')
         self.assertEqual(result['rounds'], 1)
         snapshots = list((self.output / 'iterations').glob('*.json'))
         data = json.loads(snapshots[0].read_text())
         self.assertEqual(len(data['issues']), 8)
         self.assertEqual(data['stages'], ['BASELINE', 'DISCOVER', 'DECIDE', 'PLAN',
                                          'EXECUTE', 'VERIFY', 'PERSIST', 'LOOP_GATE'])
-        self.assertEqual(data['stop_reason'], 'external_actions_only')
+        self.assertEqual(data['stop_reason'], 'assistant_work_pending')
         self.assertEqual(snapshots[0].stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.output.stat().st_mode & 0o777, 0o700)
         self.assertEqual(len(data['spec_sha256']), 64)
@@ -140,7 +149,7 @@ class RunnerTests(unittest.TestCase):
         with patch.object(cycle, 'evaluate', side_effect=[ready, cycle.evaluate({})]):
             result = self.run_cycle()
         self.assertEqual(result['rounds'], 2)
-        self.assertEqual(result['stop_reason'], 'external_actions_only')
+        self.assertEqual(result['stop_reason'], 'assistant_work_pending')
 
     def test_once_does_not_enter_second_round(self):
         with patch.object(cycle, 'evaluate', return_value=self.pending('decode_stateful')):
@@ -185,6 +194,14 @@ class RunnerTests(unittest.TestCase):
         (self.root / '.local').symlink_to(self.root / 'docs', target_is_directory=True)
         with self.assertRaises(ValueError):
             self.run_cycle()
+
+    def test_report_identifies_who_owns_next_action(self):
+        self.run_cycle()
+        report = (self.root / 'docs/sprint-cycles/iteration-000001.md').read_text()
+        self.assertIn('| #1 | INVESTIGATION_NEEDED | ASSISTANT |', report)
+        self.assertIn('| #5 | BLOCKED_USER | USER |', report)
+        self.assertIn('Responsable: ASSISTANT', report)
+        self.assertNotIn('Acción humana/upstream:', report)
 
     def test_public_report_is_positive_allowlist_not_blacklist(self):
         secrets = {'raw_journal': 'secret HOST-internal /home/person UUID=x',

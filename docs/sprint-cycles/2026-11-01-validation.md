@@ -4,14 +4,15 @@
 
 Codex CLI 0.166.0 con Superpowers 7.0.1 en un worktree aislado. Las pruebas fueron escritas antes de la implementación (RED inicial: 9 tests; después RED: 10 tests de loop; regresiones RED para caché y seguridad de IRIS). Validación final fuera del sandbox: **22 pruebas unitarias PASS**, `python3 -m py_compile scripts/sprint_cycle.py` PASS, `bash -n scripts/*.sh` PASS y `git diff --check` PASS.
 
-**Cuatro checkpoints privados** en el sistema original, en `.local/sprint-cycles/iterations`. No publicar esos JSON: contienen metadatos privados como boot ID.
+**Cinco checkpoints privados** en el sistema original, en `.local/sprint-cycles/iterations`. No publicar esos JSON: contienen metadatos privados como boot ID. La quinta iteración corrige una clasificación incorrecta de responsabilidades encontrada posteriormente. Los checkpoints previos se conservan como evidencias históricas, no como la decisión final.
 
 | Iteración | Entorno | Resultado | Interpretación |
 | --- | --- | --- | --- |
 | 000001 | Codex sandbox de workspace | `external_actions_only` | **No usar como evidencia del sistema:** sandbox bloqueaba consultas systemd, USB y GStreamer; algunos campos fueron `unknown`. |
 | 000002 | Desktop Commander, acceso normal sin privilegios | `external_actions_only` | Lectura fiable de `pd-mapper`, dock, firma, Secure Boot, Desktop Commander. |
 | 000003 | Desktop Commander tras corregir caché privada GStreamer | `external_actions_only` | Plugin V4L2 ya detectable; el ensayo H.264 sintético no completó EOS. |
-| 000004 | Desktop Commander con prueba activa IRIS deshabilitada | `external_actions_only` | Sin nuevos ensayos potencialmente inestables de VPU; sistema continúa accesible. |
+| 000004 | Desktop Commander con prueba activa IRIS deshabilitada | `external_actions_only` | Sin nuevos ensayos potencialmente inestables de VPU; clasificación antigua de responsabilidades. |
+| 000005 | Desktop Commander, clasificación destilada | `assistant_work_pending` | Identifica #1–#4 como investigación del asistente; #5 y #6 requieren intervención humana específica; #7 verificado y #8 descartado. |
 
 ## Resultados precisos por componente
 

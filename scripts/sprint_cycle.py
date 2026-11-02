@@ -179,17 +179,18 @@ POLICY = {
 
 
 def evaluate(facts):
-    states = {1: 'BLOCKED_USER', 2: 'BLOCKED_UPSTREAM', 3: 'BLOCKED_UPSTREAM',
-              4: 'BLOCKED_UPSTREAM', 5: 'BLOCKED_USER', 6: 'BLOCKED_USER',
-              7: 'BLOCKED_USER', 8: 'NOT_PLANNED'}
+    states = {1: 'INVESTIGATION_NEEDED', 2: 'INVESTIGATION_NEEDED',
+              3: 'INVESTIGATION_NEEDED', 4: 'INVESTIGATION_NEEDED',
+              5: 'BLOCKED_USER', 6: 'BLOCKED_USER',
+              7: 'INVESTIGATION_NEEDED', 8: 'NOT_PLANNED'}
     reasons = {
-        1: 'Confianza MOK/kernel requiere intervención; relación con LP #2131181 es hipótesis. Dock enumerado no demuestra video.',
-        2: 'Sin prueba de decode IRIS funcional; enumeración/firmware no demuestran aceleración. Integración usable no demostrada.',
-        3: 'Sin solución integrada firmada demostrada ni validación funcional segura; no realizar estrés.',
-        4: 'Protección de amplificador no demostrada; no realizar sonido. Integración segura no demostrada.',
+        1: 'Investigar la confianza MOK/kernel y versión del parche LP #2131181: la relación es hipótesis. Eventual lectura privilegiada necesitará autorización; dock enumerado no demuestra video.',
+        2: 'Aún falta investigación técnica del fallo IRIS; enumeración y firmware no demuestran aceleración. No repetir decodificación activa hasta justificar su seguridad.',
+        3: 'Investigar integración del EC en kernel firmado y revisar evidencia térmica existente; sin pruebas de estrés.',
+        4: 'Investigar topologías/UCM y protección del amplificador antes de pruebas acústicas; no realizar sonido.',
         5: 'BIOS/BitLocker requieren intervención y autorización humana; versión disponible citada solo por gate histórico.',
         6: 'Estado de servicio/procesos no prueba relay ni continuidad posterior a login; falta prueba humana funcional.',
-        7: 'No se cumplen todos los criterios de recuperación de la regresión; cambio global requiere intervención.',
+        7: 'La recuperación aún no reúne evidencia suficiente. Revisar mapas, servicio y firmware antes de considerar modificaciones.',
         8: 'Comportamiento intencional según gate; no hay prueba nueva que justifique cambio.',
     }
     if facts.get('iris_decode') == 'passed':
@@ -202,12 +203,18 @@ def evaluate(facts):
             facts.get('pd_overlay') is False and facts.get('iris_sha_official') is True):
         states[7] = 'VERIFIED'
         reasons[7] = 'Regresión de overlay: servicio activo y mapas base disponibles, overlay ausente y SHA oficial correcto. No prueba todo el subsistema.'
+    owners = {'INVESTIGATION_NEEDED': 'ASSISTANT', 'PENDING': 'ASSISTANT',
+              'DIAGNOSING': 'ASSISTANT', 'READY_SAFE_ACTION': 'ASSISTANT',
+              'BLOCKED_USER': 'USER', 'BLOCKED_PHYSICAL': 'USER',
+              'BLOCKED_UPSTREAM': 'UPSTREAM', 'WAITING_RELEASE': 'UPSTREAM',
+              'VERIFIED': 'NONE', 'NOT_PLANNED': 'NONE'}
     issues = []
     for issue, policy in POLICY.items():
         decision, maturity, source, action, acceptance = policy
-        issues.append({'issue': issue, 'state': states[issue], 'decision': decision,
+        issues.append({'issue': issue, 'state': states[issue],
+                       'next_owner': owners[states[issue]], 'decision': decision,
                        'upstream_status': maturity, 'source': source,
-                       'reason': reasons[issue], 'human_action': action,
+                       'reason': reasons[issue], 'next_action': action,
                        'acceptance': acceptance, 'risk': 'Solo lectura; sin cambios globales.',
                        'rollback': 'No aplica: diagnóstico sin mutación del sistema.',
                        'alternatives': ['referencia upstream del gate', 'no intervenir'],
@@ -288,14 +295,17 @@ def public_report(data):
              f"Iteración: {data['sequence']}. Fecha UTC: {data['checked_at']}.",
              f"Parada: `{data['stop_reason']}`.", '',
              'El gate es una referencia histórica; no se confirmó una nueva release en línea.', '',
-             '| Issue | Estado | Decisión |', '| --- | --- | --- |']
+             '| Issue | Estado | Responsable |', '| --- | --- | --- |']
     for item in data['issues']:
-        lines.append(f"| #{item['issue']} | {item['state']} | {POLICY[item['issue']][0]} |")
+        lines.append(f"| #{item['issue']} | {item['state']} | {item.get('next_owner', 'UNKNOWN')} |")
     lines.extend(['', 'Los estados VERIFIED tienen alcance limitado al criterio indicado.'])
     for item in data['issues']:
         issue = item['issue']
         lines.extend(['', f"## #{issue}", '', f"Fuente: {POLICY[issue][2]}.",
-                      f"Criterio: {POLICY[issue][4]}", f"Acción humana/upstream: {POLICY[issue][3]}"])
+                      f"Decisión: {POLICY[issue][0]}.",
+                      f"Responsable: {item.get('next_owner', 'UNKNOWN')}",
+                      f"Criterio: {POLICY[issue][4]}",
+                      f"Siguiente paso: {POLICY[issue][3]}"])
     return '\n'.join(lines) + '\n'
 
 
@@ -387,7 +397,13 @@ def run(root, output_dir, max_rounds=6, once=False, collector=collect):
             elif all(i['state'] in {'VERIFIED', 'BLOCKED_USER', 'BLOCKED_PHYSICAL',
                       'BLOCKED_UPSTREAM', 'WAITING_RELEASE', 'NOT_PLANNED'} for i in issues):
                 stop = 'external_actions_only'
-            elif previous == fingerprint or not pending:
+            elif previous == fingerprint:
+                stop = 'no_progress'
+            elif not pending and any(i['state'] in {'INVESTIGATION_NEEDED',
+                    'PENDING', 'DIAGNOSING'} for i in issues):
+                # Read-only runner exhausted; assistant still owns technical work.
+                stop = 'assistant_work_pending'
+            elif not pending:
                 stop = 'no_progress'
             elif round_number == max_rounds:
                 stop = 'max_rounds'
