@@ -1,3 +1,4 @@
 # Kernel patches are literal unified diffs; context lines have a diff-prefix space.
 # Whitespace correctness is enforced on the applied source by patch --dry-run and Kbuild.
 patches/*.patch -whitespace
+tests/fixtures/ubuntu-linux-7.3.0-10.10/* -whitespace
