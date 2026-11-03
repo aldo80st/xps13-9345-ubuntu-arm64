@@ -25,7 +25,9 @@
 
 ## Lo que no está demostrado
 
-**No es una corrección desplegada.** Falta confirmar mediante revisión de arquitectura/seguridad que `efi_enabled(EFI_SECURE_BOOT)` refleja una señal suficientemente autenticada cuando ARM64 lleva `efi=noruntime`, que la tabla EFI MOK está ligada a shim autenticado, y que las restricciones de revocación siguen funcionando en todas las combinaciones. **Un PASS de compilador no sustituye esa revisión.**
+**No es una corrección desplegada.** El código oficial ARM64 de Ubuntu confirma un mecanismo preliminar importante: `efi_init()` invoca `efi_set_secure_boot(efi_get__secure_boot())`, que fija `EFI_SECURE_BOOT` antes de `efi_mokvar_table_init()`; el estado proviene del EFI stub que evalúa firmware Secure Boot y `MokSBStateRT` (shim validation disabled). Esto respalda que `efi_enabled(EFI_SECURE_BOOT)` puede ser una guardia de confianza aun con `efi=noruntime`. Se verificó en código fuente exacto (`drivers/firmware/efi/{efi-init.c,secureboot.c,libstub/secureboot.c,mokvar-table.c}`) y coincide con el arranque observado (`secureboot: Secure boot enabled` y kernel Lockdown).
+
+**Sigue pendiente la revisión externa de seguridad** para certificar el origen autenticado de la tabla MOKvar en todas las rutas ARM64, la aplicación de revocaciones MOKX/dbx y las combinaciones de firmware/bootloader. `efi_mokvar_table_init()` valida ubicación y estructura de la tabla, **no por sí misma una firma criptográfica** del contenido. **Un PASS de compilador no sustituye esa revisión.**
 
 Tampoco se ha comprobado que el firmware siga estable bajo otra configuración ni se han encendido los dos monitores. El workaround `efi=noruntime` se mantiene.
 
