@@ -24,6 +24,7 @@
 - En ausencia de `EFI_RT_SUPPORTED_GET_VARIABLE`, solo intentar la tabla estática MOK cuando `efi_enabled(EFI_SECURE_BOOT)` ya sea **verdadero**. En caso contrario, detener la importación de confianza.
 - No llamar a `efi.get_variable` desde `load_moklist_certs()` cuando EFI Runtime esté deshabilitado.
 - Procesar **primero `MokListXRT`** y luego `MokListRT`; **detenerse sin importar MOK** si el parseo de revocaciones falla. Sin EFI Runtime, exigir también la existencia de la entrada `MokListXRT` en la tabla. La ruta normal con EFI Runtime conserva sus controles previos, salvo el endurecimiento explícito del caso de revocaciones inválidas.
+- El parser EFI **real** de Ubuntu se ejecuta adicionalmente en un entorno de usuarios con listas sintéticas válidas, truncadas y malformadas y 1,500 mutaciones deterministas; tests con ASan/UBSan también pasan. Estos resultados evalúan robustez sintáctica, **no** autentican revocaciones reales.
 - La matriz C simulada comprueba siete rutas: Secure Boot temprano inactivo; arranque sin Runtime con revocaciones válidas; revocaciones inválidas; lista de revocaciones ausente; MOK positiva ausente; Runtime habilitado con estado de integridad desconocido; Runtime habilitado con estado de integridad confirmado. Las pruebas usan exactamente el archivo C resultante de aplicar el parche, no una reimplementación Python.
 
 ## Lo que no está demostrado
