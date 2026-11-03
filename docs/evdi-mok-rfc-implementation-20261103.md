@@ -13,8 +13,8 @@
 5. Verificado en el XPS que existen `MokListRT`, `MokListXRT` y **`MokListTrustedRT`** en `/sys/firmware/efi/mok-variables/`. La bandera de confianza MOK tiene 1 byte y es utilizada por `imputed_trust_enabled()`.
 6. Creado `patches/0001-RFC-efi-mokvar-without-runtime.patch`. Aplica al árbol **exacto 7.3.0-10.10** con `patch --dry-run -p1`: PASS.
 7. Aplicado solo a una **copia del árbol en `.local/`**, y compilado **`load_uefi.o`** mediante Kbuild y los headers del kernel activo: **PASS**. La compilación no crea un kernel instalable ni comprueba la seguridad del cambio.
-8. RFC **v2**: se corrigió la ruta de seguridad que permitía importar certificados después de fallar el parseo de `MokListXRT`. Ahora se rechaza la importación MOK cuando la lista de revocaciones no existe en la tabla sin Runtime o cuando su parseo falla. La compilación Kbuild del objeto v2 en ARM64 con headers `7.3.0-10-generic` terminó correctamente.
-9. Se añadieron pruebas estáticas y **ejecución del propio archivo C del kernel** con servicios EFI simulados (7 escenarios) en `tests/test_kernel_mok_patch.py`, `tests/test_kernel_mok_integration.py` y `tests/mok_runtime_harness.c`. El fixture GPL-2.0 del fuente exacto incluye hash y licencia para ejecutarlas también en CI, sin descargas externas.
+8. RFC **v3**: se corrigió la ruta de seguridad que permitía importar certificados después de fallar el parseo de `MokListXRT`. En la ruta sin Runtime exige tanto la presencia de `MokListTrustedRT` (autorización de confianza MOK de shim) como `MokListXRT`; aborta la importación de MOK si las revocaciones no se pueden analizar. Las pruebas de integración de v3 pasaron en espacio de usuario, con y sin sanitizadores. El objeto v3 **compiló** con Kbuild ARM64 y los encabezados del kernel oficial; aún falta revisión de mantenedores.
+9. Se añadieron pruebas estáticas y **ejecución del propio archivo C del kernel** con servicios EFI simulados (8 escenarios) en `tests/test_kernel_mok_patch.py`, `tests/test_kernel_mok_integration.py` y `tests/mok_runtime_harness.c`. El fixture GPL-2.0 del fuente exacto incluye hash y licencia para ejecutarlas también en CI, sin descargas externas.
 10. **No se cambiaron** `/boot`, EFI, shim, MOK, firmware, parámetros GRUB ni módulos instalados en esta iteración. Secure Boot permaneció activado.
 
 
@@ -23,9 +23,9 @@
 - Cargar claves `MokListRT` a través del *handler* específico de MOK (`get_handler_for_mok`), que aplica el control `imputed_trust_enabled()`; no tratarlas como claves genéricas `db`.
 - En ausencia de `EFI_RT_SUPPORTED_GET_VARIABLE`, solo intentar la tabla estática MOK cuando `efi_enabled(EFI_SECURE_BOOT)` ya sea **verdadero**. En caso contrario, detener la importación de confianza.
 - No llamar a `efi.get_variable` desde `load_moklist_certs()` cuando EFI Runtime esté deshabilitado.
-- Procesar **primero `MokListXRT`** y luego `MokListRT`; **detenerse sin importar MOK** si el parseo de revocaciones falla. Sin EFI Runtime, exigir también la existencia de la entrada `MokListXRT` en la tabla. La ruta normal con EFI Runtime conserva sus controles previos, salvo el endurecimiento explícito del caso de revocaciones inválidas.
+- Procesar **primero `MokListXRT`** y luego `MokListRT`; **detenerse sin importar MOK** si el parseo de revocaciones falla. Sin EFI Runtime, exigir también las entradas `MokListTrustedRT` y `MokListXRT` en la tabla. La ruta normal con EFI Runtime conserva sus controles previos, salvo el endurecimiento explícito del caso de revocaciones inválidas.
 - El parser EFI **real** de Ubuntu se ejecuta adicionalmente en un entorno de usuarios con listas sintéticas válidas, truncadas y malformadas y 1,500 mutaciones deterministas; tests con ASan/UBSan también pasan. Estos resultados evalúan robustez sintáctica, **no** autentican revocaciones reales.
-- La matriz C simulada comprueba siete rutas: Secure Boot temprano inactivo; arranque sin Runtime con revocaciones válidas; revocaciones inválidas; lista de revocaciones ausente; MOK positiva ausente; Runtime habilitado con estado de integridad desconocido; Runtime habilitado con estado de integridad confirmado. Las pruebas usan exactamente el archivo C resultante de aplicar el parche, no una reimplementación Python.
+- La matriz C simulada comprueba ocho rutas, incluida la ausencia de la autorización `MokListTrustedRT`: Secure Boot temprano inactivo; arranque sin Runtime con revocaciones válidas; revocaciones inválidas; lista de revocaciones ausente; autorización MOK de shim ausente; MOK positiva ausente; Runtime habilitado con estado de integridad desconocido; Runtime habilitado con estado de integridad confirmado. Las pruebas usan exactamente el archivo C resultante de aplicar el parche, no una reimplementación Python.
 
 ## Lo que no está demostrado
 
@@ -33,7 +33,7 @@
 
 **Sigue pendiente la revisión externa de seguridad** para certificar el origen autenticado de la tabla MOKvar en todas las rutas ARM64, la aplicación de revocaciones MOKX/dbx y las combinaciones de firmware/bootloader. `efi_mokvar_table_init()` valida ubicación y estructura de la tabla, **no por sí misma una firma criptográfica** del contenido. **Un PASS de compilador no sustituye esa revisión.**
 
-**Bloqueo de seguridad principal:** el parche v2 puede procesar `MokListXRT`, pero **no puede consultar `dbx` del firmware** cuando `efi=noruntime` está activo. Exigir `MokListXRT` no sustituye todas las revocaciones de `dbx`. Hace falta revisión por mantenedores antes de conceder nuevas claves de confianza; no basta con siete pruebas de usuarios o una compilación correcta.
+**Bloqueo de seguridad principal:** el parche v3 puede procesar `MokListXRT`, pero **no puede consultar `dbx` del firmware** cuando `efi=noruntime` está activo. Exigir `MokListXRT` no sustituye todas las revocaciones de `dbx`. Hace falta revisión por mantenedores antes de conceder nuevas claves de confianza; no basta con estas pruebas aisladas o una compilación correcta.
 
 La prueba presencial de un arranque sin `efi=noruntime` ya se realizó: Ubuntu inició con Secure Boot habilitado, pero el estado de integridad siguió `unknown` y los keyrings MOK permanecieron vacíos. Se restauró y verificó el arranque habitual con `efi=noruntime`; no repetir ese ensayo. Los dos DisplayPort continúan sin validación funcional.
 

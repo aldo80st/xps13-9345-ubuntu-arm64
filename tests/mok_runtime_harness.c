@@ -44,7 +44,7 @@ struct efi_mokvar_table_entry {
 };
 
 static bool runtime_available, early_secureboot, integrity_secureboot;
-static bool mok_present, mokx_present;
+static bool mok_present, mokx_present, moktrusted_present;
 static int mokx_parse_error, mok_parse_error;
 static int efi_calls, mok_calls, mokx_calls, mok_handler_calls;
 static char load_order[8];
@@ -70,13 +70,15 @@ static struct {
                                  unsigned long *, void *);
 } efi = { mock_get_variable };
 
-static struct efi_mokvar_table_entry mok_rt, mokx_rt;
+static struct efi_mokvar_table_entry mok_rt, mokx_rt, mok_trusted_rt;
 static struct efi_mokvar_table_entry *efi_mokvar_entry_find(const char *name)
 {
     if (!strcmp(name, "MokListRT"))
         return mok_present ? &mok_rt : NULL;
     if (!strcmp(name, "MokListXRT"))
         return mokx_present ? &mokx_rt : NULL;
+    if (!strcmp(name, "MokListTrustedRT"))
+        return moktrusted_present ? &mok_trusted_rt : NULL;
     return NULL;
 }
 static void dummy(void) { }
@@ -128,7 +130,7 @@ static void reset_mock(void)
     runtime_available = false;
     early_secureboot = true;
     integrity_secureboot = false;
-    mok_present = mokx_present = true;
+    mok_present = mokx_present = moktrusted_present = true;
     mokx_parse_error = mok_parse_error = 0;
     efi_calls = mok_calls = mokx_calls = mok_handler_calls = 0;
     memset(load_order, 0, sizeof(load_order));
@@ -174,6 +176,16 @@ static int case_offline_missing_mokx_blocks_mok(void)
     ASSERT_EQ(efi_calls, 0);
     return 0;
 }
+static int case_offline_missing_moktrusted_blocks_mok(void)
+{
+    reset_mock();
+    moktrusted_present = false;
+    ASSERT_EQ(load_uefi_certs(), -22);
+    ASSERT_EQ(mok_calls, 0);
+    ASSERT_EQ(mokx_calls, 0);
+    ASSERT_EQ(efi_calls, 0);
+    return 0;
+}
 static int case_offline_missing_mok_no_import(void)
 {
     reset_mock();
@@ -211,6 +223,7 @@ int main(void)
         case_offline_import_and_order,
         case_offline_mokx_invalid_blocks_mok,
         case_offline_missing_mokx_blocks_mok,
+        case_offline_missing_moktrusted_blocks_mok,
         case_offline_missing_mok_no_import,
         case_online_integrity_unknown_blocks_mok,
         case_online_secure_imports_mok,

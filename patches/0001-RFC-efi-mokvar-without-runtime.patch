@@ -1,9 +1,9 @@
 From: XPS 13 ARM64 investigation <noreply@example.invalid>
-Subject: [RFC PATCH v2] integrity: check shim MOKvar even without EFI runtime
+Subject: [RFC PATCH v3] integrity: check shim MOKvar even without EFI runtime
 
 This RFC is NOT approved for deployment. Use the shim-provided MOKvar
-config table, but only if early EFI_SECURE_BOOT was set and a MOKx
-revocation entry exists. Do not call EFI variables without runtime.
+config table, but only if early EFI_SECURE_BOOT was set and explicit MokListTrustedRT authorization and a MOKx
+revocation entry exist. Do not call EFI variables without runtime.
 Abort MOK trust import if parsing MOKx fails.
 Use get_handler_for_mok rather than get_handler_for_db for MokListRT.
 
@@ -44,7 +44,7 @@ load_uefi.c SHA256 2abff60cd5d5fcbdd5dfde3da3ca38bd9a16dbb6b1b3b822c38596ac71284
  	/* Get MokListRT. It might not exist, so it isn't an error
  	 * if we can't get it.
  	 */
-@@ -189,8 +196,22 @@
+@@ -189,8 +196,28 @@
  		return false;
  	}
  
@@ -62,6 +62,12 @@ load_uefi.c SHA256 2abff60cd5d5fcbdd5dfde3da3ca38bd9a16dbb6b1b3b822c38596ac71284
 +	if (!efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE)) {
 +		if (!efi_enabled(EFI_SECURE_BOOT))
 +			return 0;
++		/*
++		 * Only honour positive MOK trust if shim explicitly provided its
++		 * MokListTrustedRT authorization in the early config table.
++		 */
++		if (!efi_mokvar_entry_find("MokListTrustedRT"))
++			return -EINVAL;
 +		if (!efi_mokvar_entry_find("MokListXRT"))
 +			return -EINVAL;
 +		goto load_mok_table;
@@ -69,7 +75,7 @@ load_uefi.c SHA256 2abff60cd5d5fcbdd5dfde3da3ca38bd9a16dbb6b1b3b822c38596ac71284
  
  	/* Get db and dbx.  They might not exist, so it isn't an error
  	 * if we can't get them.
-@@ -231,10 +252,13 @@
+@@ -231,10 +258,13 @@
  	if (!arch_get_secureboot())
  		return 0;
  

@@ -68,7 +68,7 @@ class NativeKernelMockTests(unittest.TestCase):
                 timeout=15, env=env)
             self.assertEqual(executed.returncode, 0,
                              executed.stdout + executed.stderr)
-            for number in range(1, 8):
+            for number in range(1, 9):
                 self.assertIn(f"MOCK_CASE_{number}=PASS", executed.stdout)
 
     def test_actual_kernel_source_execution_path(self):

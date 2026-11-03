@@ -42,6 +42,7 @@ class KernelMokRfcTests(unittest.TestCase):
         self.assertIn("get_handler_for_guid)(const efi_guid_t *) = get_handler_for_mok;", self.patch)
         self.assertIn("/* Process revocations first; failure must block positive MOK trust. */", self.patch)
         self.assertIn("return -EINVAL", self.patch)
+        self.assertIn('if (!efi_mokvar_entry_find("MokListTrustedRT"))', self.patch)
         self.assertIn('if (!efi_mokvar_entry_find("MokListXRT"))', self.patch)
 
     def test_reproducible_exact_source_when_local_cache_present(self):
