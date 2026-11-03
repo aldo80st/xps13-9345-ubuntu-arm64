@@ -221,6 +221,17 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(result.exception.code, 2)
 
 
+class ReadOnlyBootVerifierTests(unittest.TestCase):
+    def test_boot_verifier_never_modifies_security_or_boot_state(self):
+        source = (MODULE.parents[1] / 'scripts/verify-evdi-after-oneboot.sh').read_text()
+        import re
+        self.assertIsNone(re.search(r'\b(sudo|pkexec|reboot|modprobe|insmod|grub-editenv|update-grub)\b', source))
+        self.assertIn('mokutil --sb-state', source)
+        self.assertIn('EFI_NORUNTIME=NO', source)
+        self.assertIn('MOK_IMPORT_LOG=FOUND', source)
+        self.assertIn('NOTE=DRM connections are NOT proof', source)
+
+
 class SafetyRegressionTests(unittest.TestCase):
     def test_tool_cache_and_home_stay_in_worktree(self):
         with patch.object(cycle.subprocess, 'Popen') as start:
