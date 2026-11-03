@@ -28,6 +28,17 @@
 
 > Do not publish unredacted `journalctl` logs, `dmesg` dumps, machine serial numbers, MAC/IP addresses, usernames, private keys, BitLocker recovery keys or EFI variable contents.
 
+## Iterative sprint verification (Superpowers)
+
+A bounded, **read-only** iteration controller is available at [docs/sprint-cycle-method.md](docs/sprint-cycle-method.md). It records private checkpoints and publishes only redacted decisions. This is not an automatic system patcher and does not declare untested hardware working.
+
+```bash
+python3 -m unittest discover -v
+python3 scripts/sprint_cycle.py --run --max-rounds 6
+```
+
+See [2026-11-01 validation](docs/sprint-cycles/2026-11-01-validation.md) and the [upstream solution gate](docs/sprint-2026-11-01-upstream-solutions-review.md).
+
 ## Sources
 - [Dell XPS 9345 support patches and hardware matrix](https://github.com/alexVinarskis/linux-x1e80100-dell-tributo)
 - [Ubuntu Secure Boot documentation](https://documentation.ubuntu.com/security/security-features/platform-protections/secure-boot/)

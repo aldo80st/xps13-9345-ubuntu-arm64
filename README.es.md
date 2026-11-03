@@ -7,7 +7,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - EVDI 1.15 firmado con un certificado MOK inscrito, pero rechazado por el kernel.
 - `systemd-modules-load.service` falla al cargar EVDI.
 - DisplayLink D6000: servicio inactivo, historial de reinicios fallidos.
-- Falta el archivo `qcom/x1e80100/dell/xps13-9345/qcvss8380.mbn` solicitado por IRIS; **ya fue extraído del controlador oficial Dell y verificado contra el archivo comunitario**, pendiente instalación y pruebas tras reinicio.
+- El firmware IRIS `qcvss8380.mbn` **ya fue extraído de Dell, verificado e instalado en la ruta correcta**. El dispositivo V4L2 aparece, pero la aceleración real aún no funciona en las pruebas: `not-negotiated`; no repetir sesiones de video a ciegas.
 - Audio, Wi-Fi y cámara aparecen enumerados; esto **no** demuestra funcionamiento completo.
 
 ## Guías
@@ -16,6 +16,17 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Ventiladores / EC](docs/thermal-ec.md)
 - [Audio y SoundWire](docs/audio.md)
 - [Diagnóstico seguro](scripts/diagnose-readonly.sh)
+
+## Ciclo de cierre del sprint con Superpowers
+
+Implementamos un [controlador iterativo de diagnóstico seguro](docs/sprint-cycle-method.md), con estados, pruebas TDD, evidencias privadas y reportes anonimizados.
+
+```bash
+python3 -m unittest discover -v
+python3 scripts/sprint_cycle.py --run --max-rounds 6
+```
+
+**No es un instalador automático de drivers**: se detiene cuando el trabajo restante exige autorización, prueba física o una corrección upstream. Consulte la [validación](docs/sprint-cycles/2026-11-01-validation.md) y la [comparación previa con upstream](docs/sprint-2026-11-01-upstream-solutions-review.md).
 
 ## Política de pruebas
 Cada solución deberá documentar versiones, síntomas, causa, referencias upstream, método, evidencia posterior y cómo deshacerla. Ninguna prueba puede desactivar Secure Boot, copiar certificados privados a GitHub ni realizar cambios irreversibles sin decisión explícita.

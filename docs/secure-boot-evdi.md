@@ -8,16 +8,21 @@
 - `systemd-modules-load` fails due to `/etc/modules-load.d/evdi.conf`.
 - DisplayLink service logged hundreds of failed starts.
 
-## Critical distinction
-`mokutil --test-key` proving a certificate is enrolled is **not** proof that it is in the kernel's module-signing trust keyrings.
+## Critical distinction — updated 2026-11-02
 
-Canonical's LP #2131181 describes an MOK certificate going to the wrong keyring. A kernel-team correction was published in October 2026, but whether the running kernel includes it must be established. This is a **possible cause**, not yet a verified root cause here.
+**The EVDI PKCS#7 signature has been cryptographically verified successfully against the enrolled local MOK public certificate. Re-signing is NOT the next step.** The MOK config table in firmware contains that exact public certificate.
+
+The system boots with `efi=noruntime`, **enforced by Ubuntu package `ubuntu-x1e-settings`**, and the kernel logs `integrity: secureboot mode unknown, no efi`. Its upstream `load_uefi.c` returns early if EFI Runtime Services cannot read variables **before** importing MOK certificates from the EFI config table. Therefore, the strongest remaining hypothesis is missing kernel trust keyring import caused by disabled EFI Runtime Services, not a mismatched signing key.
+
+Canonical's LP #2131181 concerns certificates being loaded into an incorrect keyring and remains a secondary possible issue; it does not prove a fix for this early-return path. **Do not remove `efi=noruntime` persistently without reviewing the Qualcomm firmware workaround and establishing physical recovery.**
+
+Read the [full read-only cryptographic and EFI MOK audit](secure-boot-evdi-mok-audit-20261102.md).
 
 ## Safe read-only checks
 ```bash
 mokutil --sb-state
 mokutil --test-key /var/lib/shim-signed/mok/MOK.der
-modinfo evdi | grep -E 'filename:|signer:|sig_key:|vermagic:'
+/usr/sbin/modinfo evdi | grep -E 'filename:|signer:|sig_key:|vermagic:'
 journalctl -b -u systemd-modules-load --no-pager -n 30
 journalctl -k -b --no-pager | grep -iE 'MokList|lockdown|module verification'
 grep -R '^evdi$' /etc/modules-load.d/ 2>/dev/null
