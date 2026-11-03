@@ -1,0 +1,266 @@
+diff --git a/src/devices/cpu.rs b/src/devices/cpu.rs
+index 88aab20..43e557b 100644
+--- a/src/devices/cpu.rs
++++ b/src/devices/cpu.rs
+@@ -1,4 +1,4 @@
+-use anyhow::{Context, Result, anyhow, bail};
++use anyhow::{Context, Result, anyhow};
+ use glob::glob;
+ use lazy_regex::{Lazy, Regex, lazy_regex};
+ use log::{debug, trace, warn};
+@@ -26,6 +26,10 @@ static RE_LSCPU_SOCKETS: Lazy<Regex> = lazy_regex!(r"Socket\(s\):\s*(.*)");
+ 
+ static RE_LSCPU_CORES: Lazy<Regex> = lazy_regex!(r"Core\(s\) per socket:\s*(.*)");
+ 
++static RE_LSCPU_CORES_PER_CLUSTER: Lazy<Regex> = lazy_regex!(r"Core\(s\) per cluster:\s*(.*)");
++
++static RE_LSCPU_CLUSTERS: Lazy<Regex> = lazy_regex!(r"Cluster\(s\):\s*(.*)");
++
+ static RE_LSCPU_VIRTUALIZATION: Lazy<Regex> = lazy_regex!(r"Virtualization:\s*(.*)");
+ 
+ static RE_LSCPU_MAX_MHZ: Lazy<Regex> = lazy_regex!(r"CPU max MHz:\s*(.*)");
+@@ -34,13 +38,24 @@ static RE_PROC_STAT: Lazy<Regex> = lazy_regex!(
+     r"cpu\d+ *(?P<user>\d*) *(?P<nice>\d*) *(?P<system>\d*) *(?P<idle>\d*) *(?P<iowait>\d*) *(?P<irq>\d*) *(?P<softirq>\d*) *(?P<steal>\d*) *(?P<guest>\d*) *(?P<guest_nice>\d*)"
+ );
+ 
+-static CPU_TEMPERATURE_PATH: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+-    search_for_hwmons(KNOWN_HWMONS)
+-        .or_else(|| search_for_thermal_zones(KNOWN_THERMAL_ZONES))
+-        .or_else(|| {
+-            warn!("No CPU temperature sensor found!");
+-            None
+-        })
++static CPU_TEMPERATURE_PATHS: LazyLock<Vec<PathBuf>> = LazyLock::new(|| {
++    // Qualcomm SoCs expose one thermal sensor per CPU cluster, rather than
++    // a single CPU package sensor. Report the hottest readable cluster.
++    let qualcomm = search_for_qualcomm_cpu_temps(
++        Path::new("/sys/class/hwmon"),
++        Path::new("/sys/class/thermal"),
++    );
++    if !qualcomm.is_empty() {
++        debug!("Found {} Qualcomm CPU temperature sensors", qualcomm.len());
++        return qualcomm;
++    }
++
++    let fallback =
++        search_for_hwmons(KNOWN_HWMONS).or_else(|| search_for_thermal_zones(KNOWN_THERMAL_ZONES));
++    if fallback.is_none() {
++        warn!("No CPU temperature sensor found!");
++    }
++    fallback.into_iter().collect()
+ });
+ 
+ fn search_for_cpu_temp<S: AsRef<str>>(base_path: S) -> Option<PathBuf> {
+@@ -73,6 +88,54 @@ fn search_for_cpu_temp<S: AsRef<str>>(base_path: S) -> Option<PathBuf> {
+         .next()
+ }
+ 
++fn is_qualcomm_cpu_sensor(name: &str) -> bool {
++    let Some(rest) = name.strip_prefix("cpuss") else {
++        return false;
++    };
++
++    [
++        "_top_thermal",
++        "_btm_thermal",
++        "-top-thermal",
++        "-btm-thermal",
++    ]
++    .iter()
++    .any(|suffix| {
++        rest.strip_suffix(suffix).is_some_and(|cluster| {
++            !cluster.is_empty() && cluster.bytes().all(|b| b.is_ascii_digit())
++        })
++    })
++}
++
++fn search_for_qualcomm_cpu_temps(hwmon_root: &Path, thermal_root: &Path) -> Vec<PathBuf> {
++    let mut paths: Vec<PathBuf> = glob(&format!("{}/hwmon*", hwmon_root.display()))
++        .unwrap()
++        .flatten()
++        .filter_map(|path| {
++            let name = read_parsed::<String>(path.join("name")).ok()?;
++            is_qualcomm_cpu_sensor(name.trim())
++                .then(|| search_for_cpu_temp(path.to_string_lossy()))
++                .flatten()
++        })
++        .collect();
++
++    // Some kernels expose CPU cluster temperatures only through thermal zones.
++    if paths.is_empty() {
++        paths = glob(&format!("{}/thermal_zone*", thermal_root.display()))
++            .unwrap()
++            .flatten()
++            .filter_map(|path| {
++                let name = read_parsed::<String>(path.join("type")).ok()?;
++                let temp = path.join("temp");
++                (is_qualcomm_cpu_sensor(name.trim()) && temp.exists()).then_some(temp)
++            })
++            .collect();
++    }
++
++    paths.sort();
++    paths
++}
++
+ fn search_for_hwmons(names: &[&'static str]) -> Option<PathBuf> {
+     let mut hwmon_map = HashMap::new();
+ 
+@@ -199,12 +262,27 @@ impl CpuInfo {
+                 .and_then(|capture| capture.as_str().parse().ok())
+         });
+ 
+-        let physical_cpus = RE_LSCPU_CORES.captures(lscpu_output).and_then(|captures| {
+-            captures
+-                .get(1)
+-                .and_then(|capture| capture.as_str().parse::<usize>().ok())
+-                .map(|int| int.saturating_mul(sockets.unwrap_or(1)))
+-        });
++        let physical_cpus = RE_LSCPU_CORES
++            .captures(lscpu_output)
++            .and_then(|captures| captures.get(1))
++            .and_then(|capture| capture.as_str().parse::<usize>().ok())
++            .map(|cores| cores.saturating_mul(sockets.unwrap_or(1)))
++            .or_else(|| {
++                // ARM CPUs often report clusters rather than sockets in lscpu.
++                let cores = RE_LSCPU_CORES_PER_CLUSTER
++                    .captures(lscpu_output)?
++                    .get(1)?
++                    .as_str()
++                    .parse::<usize>()
++                    .ok()?;
++                let clusters = RE_LSCPU_CLUSTERS
++                    .captures(lscpu_output)?
++                    .get(1)?
++                    .as_str()
++                    .parse::<usize>()
++                    .ok()?;
++                cores.checked_mul(clusters)
++            });
+ 
+         let virtualization = RE_LSCPU_VIRTUALIZATION
+             .captures(lscpu_output)
+@@ -343,11 +421,15 @@ pub fn get_cpu_usage() -> Vec<Result<(u64, u64)>> {
+ ///
+ /// Will return `Err` if there was no way to read the CPU temperature.
+ pub fn get_temperature() -> Result<f32> {
+-    if let Some(path) = CPU_TEMPERATURE_PATH.as_ref() {
+-        read_sysfs_thermal(path)
+-    } else {
+-        bail!("no CPU temperature sensor found")
+-    }
++    read_cpu_temperature(&CPU_TEMPERATURE_PATHS)
++}
++
++fn read_cpu_temperature(paths: &[PathBuf]) -> Result<f32> {
++    paths
++        .iter()
++        .filter_map(|path| read_sysfs_thermal(path).ok())
++        .reduce(f32::max)
++        .ok_or_else(|| anyhow!("no readable CPU temperature sensor found"))
+ }
+ 
+ fn read_sysfs_thermal<P: AsRef<Path>>(path: P) -> Result<f32> {
+@@ -362,7 +444,14 @@ fn read_sysfs_thermal<P: AsRef<Path>>(path: P) -> Result<f32> {
+ mod test {
+     use pretty_assertions::assert_eq;
+ 
+-    use crate::devices::cpu::CpuInfo;
++    use std::{
++        fs,
++        time::{SystemTime, UNIX_EPOCH},
++    };
++
++    use crate::devices::cpu::{
++        CpuInfo, is_qualcomm_cpu_sensor, read_cpu_temperature, search_for_qualcomm_cpu_temps,
++    };
+ 
+     const LSCPU_OUTPUT: &str = concat!(
+         "Architecture:             x86_64\n",
+@@ -396,6 +485,86 @@ mod test {
+         "  NUMA node0 CPU(s):      0-15\n",
+     );
+ 
++    #[test]
++    fn lscpu_arm_clusters() {
++        let output = concat!(
++            "Architecture:             aarch64\n",
++            "CPU(s):                   12\n",
++            "Model name:               Oryon\n",
++            "Thread(s) per core:       1\n",
++            "Core(s) per cluster:      12\n",
++            "Socket(s):                -\n",
++            "Cluster(s):               1\n",
++        );
++        let parsed = CpuInfo::parse_lscpu(output);
++        assert_eq!(parsed.model_name.as_deref(), Some("Oryon"));
++        assert_eq!(parsed.logical_cpus, Some(12));
++        assert_eq!(parsed.physical_cpus, Some(12));
++        assert_eq!(parsed.sockets, None);
++        assert_eq!(parsed.max_speed, None);
++    }
++
++    #[test]
++    fn qualcomm_cpu_sensor_name_matching() {
++        for name in [
++            "cpuss0_top_thermal",
++            "cpuss2_btm_thermal",
++            "cpuss0-top-thermal",
++            "cpuss12-btm-thermal",
++        ] {
++            assert!(is_qualcomm_cpu_sensor(name), "{name}");
++        }
++        for name in [
++            "cpu0_0_top_thermal",
++            "cpuss_btm_thermal",
++            "cpuss0_mem_thermal",
++            "cpuss0",
++            "cpussZ_top_thermal",
++            "gpuss_0_thermal",
++        ] {
++            assert!(!is_qualcomm_cpu_sensor(name), "{name}");
++        }
++    }
++
++    #[test]
++    fn qualcomm_hottest_cluster_and_thermal_fallback() {
++        let token = SystemTime::now()
++            .duration_since(UNIX_EPOCH)
++            .unwrap()
++            .as_nanos();
++        let base = std::env::temp_dir().join(format!(
++            "gnome-resources-qualcomm-{}-{token}",
++            std::process::id()
++        ));
++        let hwmon_root = base.join("hwmon");
++        let thermal_root = base.join("thermal");
++        for (index, name, value) in [
++            (0, "cpuss0_top_thermal", "61000"),
++            (1, "cpuss1_btm_thermal", "63000"),
++            (2, "cpuss2_top_thermal", "58000"),
++            (3, "gpuss_0_thermal", "79000"),
++        ] {
++            let path = hwmon_root.join(format!("hwmon{index}"));
++            fs::create_dir_all(&path).unwrap();
++            fs::write(path.join("name"), name).unwrap();
++            fs::write(path.join("temp1_input"), value).unwrap();
++        }
++        let sensors = search_for_qualcomm_cpu_temps(&hwmon_root, &thermal_root);
++        assert_eq!(sensors.len(), 3);
++        assert_eq!(read_cpu_temperature(&sensors).unwrap(), 63.0);
++
++        fs::remove_dir_all(&hwmon_root).unwrap();
++        let zone = thermal_root.join("thermal_zone5");
++        fs::create_dir_all(&zone).unwrap();
++        fs::write(zone.join("type"), "cpuss0-top-thermal").unwrap();
++        fs::write(zone.join("temp"), "61500").unwrap();
++        let fallback = search_for_qualcomm_cpu_temps(&hwmon_root, &thermal_root);
++        assert_eq!(fallback.len(), 1);
++        assert_eq!(read_cpu_temperature(&fallback).unwrap(), 61.5);
++
++        fs::remove_dir_all(&base).unwrap();
++    }
++
+     #[test]
+     fn lscpu_complex() {
+         let parsed = CpuInfo::parse_lscpu(LSCPU_OUTPUT);
