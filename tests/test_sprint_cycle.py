@@ -68,6 +68,18 @@ class DiagnosisTests(unittest.TestCase):
         self.assertEqual(issues[5]['state'], 'BLOCKED_USER')
         self.assertEqual(issues[6]['state'], 'BLOCKED_USER')
 
+    def test_iris_probe_dimensions_respect_decoder_minimum(self):
+        # V4L2 IRIS advertises NV12 capture min 96x96 (observed 2026-11-03).
+        # This is a static test: it must NEVER open the actual codec device.
+        for name in ('decode_stateful', 'decode_stateless'):
+            command = cycle.COMMANDS[name]
+            caps = next(arg for arg in command if arg.startswith('video/x-raw,width='))
+            import re
+            match = re.search(r'width=(\d+),height=(\d+)', caps)
+            self.assertIsNotNone(match)
+            self.assertGreaterEqual(int(match.group(1)), 96)
+            self.assertGreaterEqual(int(match.group(2)), 96)
+
     def test_command_whitelist_rejects_arbitrary_actions(self):
         for name in ('sudo', 'restart', 'modprobe', 'uname -a'):
             with self.assertRaises(ValueError):

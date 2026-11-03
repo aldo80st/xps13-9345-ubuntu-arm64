@@ -31,7 +31,7 @@ COMMANDS = {
 for _kind, _decoder in [('stateful', 'v4l2h264dec'), ('stateless', 'v4l2slh264dec')]:
     COMMANDS['decode_' + _kind] = (
         'gst-launch-1.0', '-v', 'videotestsrc', 'num-buffers=3', '!',
-        'video/x-raw,width=64,height=64,framerate=1/1', '!', 'x264enc',
+        'video/x-raw,width=320,height=240,framerate=1/1', '!', 'x264enc',
         'tune=zerolatency', '!', 'h264parse', '!', _decoder, '!',
         'fakesink', 'sync=false')
 
