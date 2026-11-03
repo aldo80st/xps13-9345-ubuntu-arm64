@@ -1,0 +1,73 @@
+From: XPS 13 ARM64 investigation <noreply@example.invalid>
+Subject: [RFC PATCH] integrity: load shim MOKvar table with EFI runtime disabled
+
+This RFC is NOT approved for deployment. Under efi=noruntime, keep
+runtime variable access disabled, but attempt the shim-provided static
+MOKvar table only if the kernel already recorded EFI_SECURE_BOOT.
+Also route trusted MokListRT through the existing MOK handler.
+
+Security review required: confirm that EFI_SECURE_BOOT is a reliable
+early-stub state on ARM64; verify authenticated source of MokListRT;
+check MokListXRT revocation and the fallback semantics; audit shim.
+Do not boot an unsigned or ad-hoc-signed kernel to test this.
+
+Based on Ubuntu 26.10 linux-source-7.3.0 7.3.0-10.10,
+load_uefi.c SHA256 2abff60cd5d5fcbdd5dfde3da3ca38bd9a16dbb6b1b3b822c38596ac7128424d.
+
+---
+--- a/security/integrity/platform_certs/load_uefi.c
++++ b/security/integrity/platform_certs/load_uefi.c
+@@ -120,7 +120,7 @@
+ 	efi_char16_t *efivar_name = L"MokListRT";
+ 	const char *parse_mokvar_name = "UEFI:MokListRT (MOKvar table)";
+ 	const char *parse_efivar_name = "UEFI:MokListRT";
+-	efi_element_handler_t (*get_handler_for_guid)(const efi_guid_t *) = get_handler_for_db;
++	efi_element_handler_t (*get_handler_for_guid)(const efi_guid_t *) = get_handler_for_mok;
+ 
+ 	if (!load_db) {
+ 		mokvar_name = "MokListXRT";
+@@ -148,6 +148,14 @@
+ 		       mokvar_name, rc);
+ 	}
+ 
++	/*
++	 * The shim MOKvar config table can be used without EFI runtime
++	 * services. Do not call get_cert_list() when EFI get_variable is
++	 * disabled: on Qualcomm platforms that would use a missing service.
++	 */
++	if (!efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE))
++		return mokvar_entry ? rc : 0;
++
+ 	/* Get MokListRT. It might not exist, so it isn't an error
+ 	 * if we can't get it.
+ 	 */
+@@ -189,8 +197,17 @@
+ 		return false;
+ 	}
+ 
+-	if (!efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE))
+-		return false;
++	/*
++	 * When EFI runtime services are disabled (e.g. efi=noruntime on
++	 * Snapdragon laptops), still process the static shim MOKvar table.
++	 * This is allowed ONLY when the EFI subsystem has independently
++	 * recorded that Secure Boot is enabled. Otherwise fail closed.
++	 */
++	if (!efi_rt_services_supported(EFI_RT_SUPPORTED_GET_VARIABLE)) {
++		if (!efi_enabled(EFI_SECURE_BOOT))
++			return 0;
++		goto load_mok_table;
++	}
+ 
+ 	/* Get db and dbx.  They might not exist, so it isn't an error
+ 	 * if we can't get them.
+@@ -231,7 +248,8 @@
+ 	if (!arch_get_secureboot())
+ 		return 0;
+ 
+-	/* Load the MokListXRT certs */
++load_mok_table:
++	/* Load the MokListXRT certs before trusted MokListRT. */
+ 	rc = load_moklist_certs(false);
+ 	if (rc)
+ 		pr_err("Couldn't parse mokx signatures: %d\n", rc);
