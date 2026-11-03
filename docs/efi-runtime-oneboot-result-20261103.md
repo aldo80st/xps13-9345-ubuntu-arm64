@@ -34,6 +34,6 @@
 
 ## Acción inmediata
 
-**Volver a arrancar normalmente, sin editar GRUB**, para recuperar la mitigación firmware `efi=noruntime` después de recopilar evidencia. Verificar posteriormente la línea de arranque y la conectividad. No reiniciar automáticamente si el usuario no está disponible para eventual intervención física.
+**COMPLETADO / verificado a las 12:05 (hora del XPS, 2026-11-03):** reinicio normal desde Ubuntu, sin editar GRUB. Desktop Commander recuperó conectividad. `uname -r` = `7.3.0-10-generic`, `/proc/cmdline` vuelve a contener `efi=noruntime`, `mokutil --sb-state` = `SecureBoot enabled`, kernel vuelve a indicar `integrity: secureboot mode unknown, no efi`, y el agente remoto está activo. El worktree está limpio. EVDI permanece sin cargar. **No hay pendiente de recuperación del arranque.**
 
 **Aceptación para cerrar el issue:** arranque normal con `efi=noruntime` y Secure Boot habilitados, clave MOK en keyring permitido, EVDI/DisplayLink activos, ambos DP con imagen real.
