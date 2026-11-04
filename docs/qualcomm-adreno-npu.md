@@ -95,11 +95,14 @@ contenedor ARM64. Nunca reemplaza `/usr/bin/resources`.
   Some(300000000.0)`, `temperature: Some(71.2)`,
   `usage_fraction: None`, `qualcomm_adreno: true` y registro
   `Adreno: suppressing unsupported utilization meter`.
-- AT-SPI confirmó el proceso gráfico `resources-test` y la ventana
-  `Resources`; GNOME rechazó el servicio ScreenshotWindow con
-  `AccessDenied`. La confirmación humana visual de los subtítulos
-  sigue siendo un gate pendiente, no se deshabilitaron controles
-  de captura del escritorio.
+- AT-SPI permitió **seleccionar la pestaña GPU y leer sus etiquetas reales**:
+  fabricante `Qualcomm`, nombre `Qualcomm Adreno X1-85`, frecuencia
+  `300.00 MHz`, temperatura `61 °C` en una muestra, uso total `N/A`,
+  VRAM `N/A`, codificador y decodificador `N/A`. **La salida UI fue
+  validada** contra el defecto de cero ficticio.
+- GNOME rechazó ScreenshotWindow con `AccessDenied`; sigue pendiente
+  únicamente una revisión visual de estilo/maquetación con captura
+  autorizada, no los valores de las etiquetas. No se cambiaron permisos.
 
 ## Prevención de regresiones mediante CI ARM64
 
@@ -110,7 +113,11 @@ Ubuntu 26.10 antes de aplicar ambos parches a GNOME 51.0, ejecutar
 Con `RESOURCES_CI_ONLY=1` genera y valida los binarios y assets sin instalar
 ninguna aplicación en el host efímero. El modo CI se probó localmente en
 el XPS: **90 tests PASS, CI_RESULT=0**. El resultado del runner remoto es
-un gate independiente y deberá comprobarse después del push.
+un gate independiente. **GitHub Actions ARM64 PASS** en el PR #14:
+90 pruebas sin fallos. En la iteración siguiente se eliminó la compilación
+ARM64 duplicada por `push` + `pull_request` (los pushes directos a `main`
+siguen ejecutando el workflow) y se actualizó checkout a v7 con
+`persist-credentials: false`.
 
 Para revertir la versión aislada:
 

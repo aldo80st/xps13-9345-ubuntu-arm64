@@ -31,7 +31,10 @@ done
 for patch in "${PATCHES[@]}"; do
   [[ -f "$patch" ]] || { echo "Missing patch: $patch" >&2; exit 2; }
 done
-mkdir -p "$WORK/source" "$WORK/out" "$CACHE/cargo" "$CACHE/target" "$PREFIX/schema"
+mkdir -p "$WORK/source" "$WORK/out" "$CACHE/cargo" "$CACHE/target"
+if [[ "${RESOURCES_CI_ONLY:-0}" != "1" ]]; then
+  mkdir -p "$PREFIX/schema"
+fi
 
 if [[ -n "${RESOURCES_SOURCE_REPO:-}" ]]; then
   upstream_sha="$(git -C "$RESOURCES_SOURCE_REPO" rev-list -n 1 "$TAG")"
