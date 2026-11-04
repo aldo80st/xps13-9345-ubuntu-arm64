@@ -104,6 +104,34 @@ cargo test --locked --manifest-path lib/process_data/Cargo.toml --all-targets
   concreta requiere un test de aceptación visual o de accesibilidad
   adicional; no confundir con la validación del auxiliar.
 
+## Smoke test de hardware (sin identificadores de procesos)
+
+~~~bash
+python3 scripts/verify_msm_fdinfo.py
+~~
+
+Comprueba la presencia de `MsmStats` desde el **auxiliar instalado**, la
+asociación con un controlador `msm` real mediante sysfs y dos muestras
+consecutivas. Nunca imprime nombres ni IDs de procesos. Cuando no hay carga
+GPU, el contador puede quedar estable: eso **no es fallo**.
+
+Opcionalmente, durante una carga gráfica conocida:
+
+~~~bash
+python3 scripts/verify_msm_fdinfo.py --expect-activity --interval 1.5
+~~
+
+En el XPS con `vkcube` se obtuvo `MSM_FDINFO=VERIFIED`, tarjeta `1`,
+12 registros en cada muestra y aumento positivo de **8 927 611 ns**,
+con salida `GLOBAL_GPU_UTILIZATION=NOT_INFERRED`. Tres pruebas del
+verificador (parser, mapeo de controlador y auxiliar sintético) también
+pasaron con `unittest` y se incorporaron al workflow de scripts.
+
+Un contraste exploratorio de tiempo de barrido con 3 muestras en el
+mismo equipo dio mediana **0.114 s** para el auxiliar Ubuntu y **0.116 s**
+para el parcheado. El valor es orientativo y **no** prueba una equivalencia
+estadística de rendimiento.
+
 ## NPU
 
 Este parche **no modifica la NPU**: el CDSP figura `running`, pero no
