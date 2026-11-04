@@ -556,3 +556,273 @@ index aa4890d..546366d 100644
 +        assert_eq!(a.greater(&b), b);
 +    }
 +}
+diff --git a/src/devices/process.rs b/src/devices/process.rs
+index d2b0ca5..209c227 100644
+--- a/src/devices/process.rs
++++ b/src/devices/process.rs
+@@ -30,6 +30,46 @@ use crate::{
+     },
+ };
+ 
++/// Preserve unknown samples while allowing a genuine 0% when the driver
++/// returned a valid zero delta. Invalid samples do not pollute valid devices.
++fn combine_available_fractions(samples: impl Iterator<Item = Option<f32>>) -> Option<f32> {
++    let mut known = false;
++    let mut total = 0.0;
++    for sample in samples.flatten() {
++        if sample.is_finite() {
++            known = true;
++            total += sample;
++        }
++    }
++    known.then(|| total.clamp(0.0, 1.0))
++}
++
++#[cfg(test)]
++mod gpu_fraction_availability_tests {
++    use super::combine_available_fractions;
++
++    #[test]
++    fn missing_is_not_zero_but_real_zero_is_preserved() {
++        assert_eq!(combine_available_fractions([None, None].into_iter()), None);
++        assert_eq!(
++            combine_available_fractions([Some(0.0)].into_iter()),
++            Some(0.0)
++        );
++        assert_eq!(
++            combine_available_fractions([None, Some(0.25)].into_iter()),
++            Some(0.25)
++        );
++        assert_eq!(
++            combine_available_fractions([Some(f32::NAN)].into_iter()),
++            None
++        );
++        assert_eq!(
++            combine_available_fractions([Some(0.8), Some(0.7)].into_iter()),
++            Some(1.0)
++        );
++    }
++}
++
+ static COMPANION_PROCESS: LazyLock<Mutex<(ChildStdin, ChildStdout)>> = LazyLock::new(|| {
+     let proxy_path = if *IS_FLATPAK {
+         format!(
+@@ -433,58 +473,65 @@ impl Process {
+         }
+     }
+ 
++    // An absent DRM counter is *not* equivalent to a measured 0%.
++    // Only a valid old/new pair contributes to the process GPU sample.
++    #[must_use]
++    pub fn gpu_usage_optional(&self) -> Option<f32> {
++        let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
++        combine_available_fractions(self.data.gpu_usage_stats.iter().map(|(gpu, usage)| {
++            self.gpu_usage_stats_last
++                .get(gpu)
++                .and_then(|previous| usage.gfx_fraction(previous, time_delta))
++        }))
++    }
++
+     #[must_use]
+     pub fn gpu_usage(&self) -> f32 {
+-        let mut returned_gpu_usage = 0.0;
+-        for (gpu, usage) in &self.data.gpu_usage_stats {
+-            if let Some(old_usage) = self.gpu_usage_stats_last.get(gpu) {
+-                let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
+-                returned_gpu_usage += usage
+-                    .gfx_fraction(old_usage, time_delta)
+-                    .unwrap_or_default();
+-            }
+-        }
++        self.gpu_usage_optional().unwrap_or_default()
++    }
+ 
+-        returned_gpu_usage.clamp(0.0, 1.0)
++    #[must_use]
++    pub fn enc_usage_optional(&self) -> Option<f32> {
++        let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
++        combine_available_fractions(self.data.gpu_usage_stats.iter().map(|(gpu, usage)| {
++            self.gpu_usage_stats_last
++                .get(gpu)
++                .and_then(|previous| usage.enc_fraction(previous, time_delta))
++        }))
+     }
+ 
+     #[must_use]
+     pub fn enc_usage(&self) -> f32 {
+-        let mut returned_gpu_usage = 0.0;
+-        for (gpu, usage) in &self.data.gpu_usage_stats {
+-            if let Some(old_usage) = self.gpu_usage_stats_last.get(gpu) {
+-                let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
+-                returned_gpu_usage += usage
+-                    .enc_fraction(old_usage, time_delta)
+-                    .unwrap_or_default();
+-            }
+-        }
++        self.enc_usage_optional().unwrap_or_default()
++    }
+ 
+-        returned_gpu_usage.clamp(0.0, 1.0)
++    #[must_use]
++    pub fn dec_usage_optional(&self) -> Option<f32> {
++        let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
++        combine_available_fractions(self.data.gpu_usage_stats.iter().map(|(gpu, usage)| {
++            self.gpu_usage_stats_last
++                .get(gpu)
++                .and_then(|previous| usage.dec_fraction(previous, time_delta))
++        }))
+     }
+ 
+     #[must_use]
+     pub fn dec_usage(&self) -> f32 {
+-        let mut returned_gpu_usage = 0.0;
+-        for (gpu, usage) in &self.data.gpu_usage_stats {
+-            if let Some(old_usage) = self.gpu_usage_stats_last.get(gpu) {
+-                let time_delta = self.data.timestamp.saturating_sub(self.timestamp_last);
+-                returned_gpu_usage += usage
+-                    .dec_fraction(old_usage, time_delta)
+-                    .unwrap_or_default();
+-            }
+-        }
+-
+-        returned_gpu_usage.clamp(0.0, 1.0)
++        self.dec_usage_optional().unwrap_or_default()
+     }
+ 
+     #[must_use]
+-    pub fn gpu_mem_usage(&self) -> u64 {
++    pub fn gpu_mem_usage_optional(&self) -> Option<u64> {
+         self.data
+             .gpu_usage_stats
+             .values()
+-            .map(|stats| stats.mem().unwrap_or_default())
+-            .sum()
++            .filter_map(GpuUsageStats::mem)
++            .reduce(u64::saturating_add)
++    }
++
++    #[must_use]
++    pub fn gpu_mem_usage(&self) -> u64 {
++        self.gpu_mem_usage_optional().unwrap_or_default()
+     }
+ 
+     #[must_use]
+diff --git a/src/ui/dialogs/process_dialog.rs b/src/ui/dialogs/process_dialog.rs
+index c836808..a0dfc6c 100644
+--- a/src/ui/dialogs/process_dialog.rs
++++ b/src/ui/dialogs/process_dialog.rs
+@@ -195,17 +195,32 @@ impl ResProcessDialog {
+                 .set_subtitle(&convert_storage(process.write_total() as f64, false));
+         }
+ 
+-        imp.gpu_usage
+-            .set_subtitle(&convert_fraction(process.gpu_usage() as f64, false));
++        imp.gpu_usage.set_subtitle(&if process.gpu_usage() < 0.0 {
++            i18n("N/A")
++        } else {
++            convert_fraction(process.gpu_usage() as f64, false)
++        });
+ 
+         imp.vram_usage
+-            .set_subtitle(&convert_storage(process.gpu_mem_usage() as f64, false));
++            .set_subtitle(&if process.gpu_mem_usage() < 0 {
++                i18n("N/A")
++            } else {
++                convert_storage(process.gpu_mem_usage() as f64, false)
++            });
+ 
+         imp.encoder_usage
+-            .set_subtitle(&convert_fraction(process.enc_usage() as f64, false));
++            .set_subtitle(&if process.enc_usage() < 0.0 {
++                i18n("N/A")
++            } else {
++                convert_fraction(process.enc_usage() as f64, false)
++            });
+ 
+         imp.decoder_usage
+-            .set_subtitle(&convert_fraction(process.dec_usage() as f64, false));
++            .set_subtitle(&if process.dec_usage() < 0.0 {
++                i18n("N/A")
++            } else {
++                convert_fraction(process.dec_usage() as f64, false)
++            });
+ 
+         imp.total_cpu_time
+             .set_subtitle(&format_time(process.total_cpu_time()));
+diff --git a/src/ui/pages/processes/mod.rs b/src/ui/pages/processes/mod.rs
+index 547f708..0dd8387 100644
+--- a/src/ui/pages/processes/mod.rs
++++ b/src/ui/pages/processes/mod.rs
+@@ -631,7 +631,7 @@ impl ResProcesses {
+             min_chars: MAX_PERCENTAGE_LENGTH,
+             xalign: 1.0,
+             sorter: numeric,
+-            convert: |v: f32| format!("{:.1} %", v * 100.0),
++            convert: |v: f32| if v < 0.0 { i18n("N/A") } else { format!("{:.1} %", v * 100.0) },
+             settings_show: processes_show_gpu,
+             settings_connect: connect_processes_show_gpu,
+         ));
+@@ -642,11 +642,11 @@ impl ResProcesses {
+             entry_type: ProcessEntry,
+             title: i18n("Video Memory"),
+             property: gpu_mem_usage,
+-            value_type: u64,
++            value_type: i64,
+             min_chars: MAX_STORAGE_LENGTH,
+             xalign: 1.0,
+             sorter: numeric,
+-            convert: |v: u64| convert_storage(v as f64, false),
++            convert: |v: i64| if v < 0 { i18n("N/A") } else { convert_storage(v as f64, false) },
+             settings_show: processes_show_gpu_memory,
+             settings_connect: connect_processes_show_gpu_memory,
+         ));
+@@ -661,7 +661,7 @@ impl ResProcesses {
+             min_chars: MAX_PERCENTAGE_LENGTH,
+             xalign: 1.0,
+             sorter: numeric,
+-            convert: |v: f32| format!("{:.1} %", v * 100.0),
++            convert: |v: f32| if v < 0.0 { i18n("N/A") } else { format!("{:.1} %", v * 100.0) },
+             settings_show: processes_show_encoder,
+             settings_connect: connect_processes_show_encoder,
+         ));
+@@ -676,7 +676,7 @@ impl ResProcesses {
+             min_chars: MAX_PERCENTAGE_LENGTH,
+             xalign: 1.0,
+             sorter: numeric,
+-            convert: |v: f32| format!("{:.1} %", v * 100.0),
++            convert: |v: f32| if v < 0.0 { i18n("N/A") } else { format!("{:.1} %", v * 100.0) },
+             settings_show: processes_show_decoder,
+             settings_connect: connect_processes_show_decoder,
+         ));
+diff --git a/src/ui/pages/processes/process_entry.rs b/src/ui/pages/processes/process_entry.rs
+index 20a7b6e..fb0a7cd 100644
+--- a/src/ui/pages/processes/process_entry.rs
++++ b/src/ui/pages/processes/process_entry.rs
+@@ -74,7 +74,7 @@ mod imp {
+         dec_usage: Cell<f32>,
+ 
+         #[property(get, set)]
+-        gpu_mem_usage: Cell<u64>,
++        gpu_mem_usage: Cell<i64>,
+ 
+         #[property(get, set)]
+         total_cpu_time: Cell<f64>,
+@@ -255,10 +255,14 @@ impl ProcessEntry {
+                 .write_bytes
+                 .map_or(-1, |write_total| write_total as i64),
+         );
+-        self.set_gpu_usage(process.gpu_usage());
+-        self.set_enc_usage(process.enc_usage());
+-        self.set_dec_usage(process.dec_usage());
+-        self.set_gpu_mem_usage(process.gpu_mem_usage());
++        self.set_gpu_usage(process.gpu_usage_optional().unwrap_or(-1.0));
++        self.set_enc_usage(process.enc_usage_optional().unwrap_or(-1.0));
++        self.set_dec_usage(process.dec_usage_optional().unwrap_or(-1.0));
++        self.set_gpu_mem_usage(
++            process
++                .gpu_mem_usage_optional()
++                .map_or(-1, |bytes| i64::try_from(bytes).unwrap_or(i64::MAX)),
++        );
+         self.set_user_cpu_time((process.data.user_cpu_time as f64) / (*TICK_RATE as f64));
+         self.set_system_cpu_time((process.data.system_cpu_time as f64) / (*TICK_RATE as f64));
+         self.set_total_cpu_time(self.user_cpu_time() + self.system_cpu_time());

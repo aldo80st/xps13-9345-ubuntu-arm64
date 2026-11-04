@@ -89,7 +89,8 @@ cargo test --locked --manifest-path lib/process_data/Cargo.toml --all-targets
 
 ## Validaciones en la máquina
 
-- Suite Resources: **90 pruebas PASS**.
+- Suite Resources: **91 pruebas PASS**, incluyendo regresión para distinguir
+  muestras GPU desconocidas de ceros reales.
 - Suite `process-data`: **21 pruebas PASS** (incluye los casos nuevos de
   DisplayLink/card1, clientes distintos/duplicados, malformed/ausente,
   reseteo y falta de mapeo).
@@ -103,9 +104,8 @@ cargo test --locked --manifest-path lib/process_data/Cargo.toml --all-targets
   de rendimiento ni un porcentaje global.
 - Smoke de interfaz: Resources detecta Adreno y lanza el auxiliar
   **desde** `~/.local/opt/resources-qualcomm-51/resources-processes`,
-  verificado en log. La inspección final de la columna GPU en una fila
-  concreta requiere un test de aceptación visual o de accesibilidad
-  adicional; no confundir con la validación del auxiliar.
+  verificado en log. La aceptación de la columna GPU se automatiza con
+  `scripts/verify_resources_ui.py`, descrito a continuación.
 
 ## Smoke test de hardware (sin identificadores de procesos)
 
@@ -170,6 +170,38 @@ Un contraste exploratorio de tiempo de barrido con 3 muestras en el
 mismo equipo dio mediana **0.114 s** para el auxiliar Ubuntu y **0.116 s**
 para el parcheado. El valor es orientativo y **no** prueba una equivalencia
 estadística de rendimiento.
+
+## Aceptación funcional de la interfaz — completada
+
+Se corrigió otra conversión errónea de `None` a `0.0 %` / `0 B` en las
+**filas y el diálogo de procesos**. La capa `Process` conserva getters
+compatibles, pero añade getters opcionales de GPU, encoder/decoder y
+memoria de video para que la interfaz muestre **N/A cuando no hay un
+contador medido**, sin modificar los valores de otras métricas. La tabla
+usa el centinela `-1` sólo en propiedades de presentación. Un contador
+válido con valor cero sigue mostrando `0.0 %`.
+
+Se incorporó una aceptación de pantalla mediante GNOME AT-SPI, sin
+capturas privilegiadas ni nombres, PIDs o comandos de procesos:
+
+~~~bash
+# Con Resources (Qualcomm test) abierto en la pestaña Procesos:
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+  python3 scripts/verify_resources_ui.py --require-positive
+~~~
+
+**Resultado real XPS, 3 nov 2026, durante `vkcube` en Adreno X1-85:**
+`RENDERED_GPU_CELLS=23`, `GPU_NA_CELLS=14`,
+`GPU_VALID_ZERO_CELLS=6`, `GPU_POSITIVE_CELLS=3`,
+`RENDERED_GPU_SEMANTICS=VERIFIED`, código de salida **0**. También
+pasaron **7 pruebas Python** (4 del verificador DRM y 3 del comprobador
+visual), ejecutadas por el workflow existente de validación de scripts.
+
+La comprobación inspecciona las celdas GPU renderizadas y distingue
+actividad positiva, cero válido y falta de métricas. No identifica
+una fila específica como `vkcube`, ya que GTK virtualiza las filas
+visibles; la fuente de actividad por cliente DRM se comprobó por separado
+con el verificador de hardware y Vulkan.
 
 ## NPU
 
