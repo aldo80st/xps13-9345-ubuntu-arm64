@@ -32,7 +32,9 @@ No falsifica **utilización total**, memoria GPU dedicada, potencia ni
 frecuencias no disponibles. La GPU utiliza memoria compartida; no se debe
 inventar una VRAM dedicada a partir de la RAM general. Los contadores
 `drm-engine-gpu` disponibles en `/proc/<pid>/fdinfo` describen actividad
-por proceso, **no porcentaje global**: es otro trabajo de instrumentación.
+por cliente, **no porcentaje global**. La corrección de lectura por cliente,
+atribución con DisplayLink y deduplicación de FDs quedó implementada en
+[DRM msm por proceso](msm-fdinfo.md). El medidor global permanece en N/A.
 
 ## NPU: diagnóstico y límites
 

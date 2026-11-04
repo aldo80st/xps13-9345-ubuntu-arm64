@@ -6,6 +6,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PATCHES=(
   "$ROOT/patches/resources-51-qualcomm-cpu-metrics.patch"
   "$ROOT/patches/resources-51-qualcomm-adreno-gpu.patch"
+  "$ROOT/patches/resources-51-msm-fdinfo.patch"
 )
 UPSTREAM="https://gitlab.gnome.org/GNOME/Incubator/resources.git"
 TAG="51.0"
@@ -61,16 +62,22 @@ docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
   -e HOME=/tmp -e CARGO_HOME=/cache/cargo -e CARGO_TARGET_DIR=/cache/target \
   -e APP_ID="$APP_ID" -e GETTEXT_PACKAGE=resources -e DEVLOPMENT_BUILD=false \
   -e VERSION=51.0.0 -e LOCALEDIR=/usr/share/locale \
-  -e LIBEXECDIR=/usr/libexec/resources \
+  -e LIBEXECDIR="$PREFIX" \
   -e RESOURCES_FILE="$PREFIX/resources.gresource" \
   "$IMAGE" sh -ec '
     cd /src/source
     cargo fmt --all -- --check
     cargo test --locked --all-targets
-    cargo build --locked --bin resources
+    # The process-data library is a standalone Cargo package; the root test
+    # command above does NOT execute its unit tests.
+    cargo test --locked --manifest-path lib/process_data/Cargo.toml --all-targets
+    cargo build --locked --bins
     glib-compile-resources --sourcedir=data/resources \
       --target=/src/out/resources.gresource data/resources/resources.gresource.xml
     cp /cache/target/debug/resources /src/out/resources-test
+    for helper in resources-processes resources-adjust resources-kill; do
+      cp "/cache/target/debug/$helper" "/src/out/$helper"
+    done
   '
 
 # In CI, validate build artifacts and tests without installing a desktop
@@ -78,7 +85,8 @@ docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
 if [[ "${RESOURCES_CI_ONLY:-0}" == "1" ]]; then
   test -s "$WORK/out/resources-test"
   test -s "$WORK/out/resources.gresource"
-  echo "PASS: Resources 51.0 source=$COMMIT (CI, Qualcomm CPU + Adreno GPU)"
+  test -s "$WORK/out/resources-processes"
+  echo "PASS: Resources 51.0 source=$COMMIT (CI, Qualcomm CPU + Adreno + MSM process telemetry)"
   sha256sum "$WORK/out/resources-test" "$WORK/out/resources.gresource"
   exit 0
 fi
@@ -89,6 +97,9 @@ sed -e "s/@app-id@/$APP_ID/g" \
     "$WORK/source/data/org.gnome.Resources.gschema.xml.in" \
     > "$WORK/out/$APP_ID.gschema.xml"
 install -m 755 "$WORK/out/resources-test" "$PREFIX/resources-test"
+for helper in resources-processes resources-adjust resources-kill; do
+  install -m 755 "$WORK/out/$helper" "$PREFIX/$helper"
+done
 install -m 644 "$WORK/out/resources.gresource" "$PREFIX/resources.gresource"
 install -m 644 "$WORK/out/$APP_ID.gschema.xml" "$PREFIX/schema/$APP_ID.gschema.xml"
 glib-compile-schemas --strict "$PREFIX/schema"
@@ -114,7 +125,7 @@ Categories=System;Monitor;
 Terminal=false
 DESKTOP
 
-echo "PASS: Resources 51.0 source=$COMMIT (Qualcomm CPU + Adreno GPU)"
+echo "PASS: Resources 51.0 source=$COMMIT (Qualcomm CPU + Adreno GPU + MSM process telemetry)"
 sha256sum "$PREFIX/resources-test" "$PREFIX/resources.gresource"
 echo "Launch: $PREFIX/run"
 echo "Rollback: rm -rf '$PREFIX' '$HOME/.local/share/applications/$APP_ID.desktop'"

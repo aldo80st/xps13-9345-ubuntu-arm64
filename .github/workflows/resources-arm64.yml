@@ -2,14 +2,14 @@ name: Qualcomm Resources ARM64
 on:
   pull_request:
     paths:
-      - "patches/resources-51-qualcomm-*.patch"
+      - "patches/resources-51-*.patch"
       - "scripts/build-resources-arm64.sh"
       - "containers/resources-arm64/**"
       - ".github/workflows/resources-arm64.yml"
   push:
     branches: [main]
     paths:
-      - "patches/resources-51-qualcomm-*.patch"
+      - "patches/resources-51-*.patch"
       - "scripts/build-resources-arm64.sh"
       - "containers/resources-arm64/**"
       - ".github/workflows/resources-arm64.yml"
