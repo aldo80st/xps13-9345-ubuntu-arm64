@@ -1,5 +1,5 @@
 diff --git a/src/devices/gpu/mod.rs b/src/devices/gpu/mod.rs
-index 8465ab9..cf390f4 100644
+index 8465ab9..1bd4418 100644
 --- a/src/devices/gpu/mod.rs
 +++ b/src/devices/gpu/mod.rs
 @@ -2,6 +2,7 @@ mod amd;
@@ -10,8 +10,46 @@ index 8465ab9..cf390f4 100644
  mod v3d;
  
  use anyhow::{Context, Result, bail};
+@@ -61,6 +62,9 @@ pub struct GpuData {
+     pub link: Option<Link>,
+ 
+     pub nvidia: bool,
++    /// True only when the kernel platform driver provides real Adreno telemetry.
++    /// Resource 51 has no trustworthy device-wide usage counter for this SoC.
++    pub qualcomm_adreno: bool,
+ }
+ 
+ impl GpuData {
+@@ -90,6 +94,7 @@ impl GpuData {
+         let link = gpu.link().ok();
+ 
+         let nvidia = matches!(gpu, Gpu::Nvidia(_));
++        let qualcomm_adreno = gpu.is_qualcomm_adreno();
+ 
+         let gpu_data = Self {
+             gpu_identifier,
+@@ -106,6 +111,7 @@ impl GpuData {
+             power_cap_max,
+             link,
+             nvidia,
++            qualcomm_adreno,
+         };
+ 
+         trace!("Gathered GPU data for {gpu_identifier}: {gpu_data:?}");
+@@ -218,6 +224,11 @@ impl std::ops::Deref for Gpu {
+ }
+ 
+ impl Gpu {
++    #[must_use]
++    pub fn is_qualcomm_adreno(&self) -> bool {
++        matches!(self, Self::Other(other) if other.has_adreno_telemetry())
++    }
++
+     /// Returns a `Vec` of all GPUs currently found in the system.
+     ///
+     /// # Errors
 diff --git a/src/devices/gpu/other.rs b/src/devices/gpu/other.rs
-index a23695f..c449c3e 100644
+index a23695f..cbaaf0d 100644
 --- a/src/devices/gpu/other.rs
 +++ b/src/devices/gpu/other.rs
 @@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
@@ -26,7 +64,7 @@ index a23695f..c449c3e 100644
  
  #[derive(Debug, Clone, Default)]
  
-@@ -35,6 +38,14 @@ impl OtherGpu {
+@@ -35,6 +38,18 @@ impl OtherGpu {
      }
  }
  
@@ -36,12 +74,16 @@ index a23695f..c449c3e 100644
 +            .then_some(ADRENO_TELEMETRY.as_ref())
 +            .flatten()
 +    }
++
++    pub(super) fn has_adreno_telemetry(&self) -> bool {
++        self.adreno().is_some()
++    }
 +}
 +
  impl GpuImpl for OtherGpu {
      fn device(&self) -> Option<&'static Device> {
          self.device
-@@ -57,7 +68,8 @@ impl GpuImpl for OtherGpu {
+@@ -57,7 +72,8 @@ impl GpuImpl for OtherGpu {
      }
  
      fn name(&self) -> Result<String> {
@@ -51,7 +93,7 @@ index a23695f..c449c3e 100644
      }
  
      fn usage(&self) -> Result<f64> {
-@@ -85,7 +97,11 @@ impl GpuImpl for OtherGpu {
+@@ -85,7 +101,11 @@ impl GpuImpl for OtherGpu {
      }
  
      fn temperature(&self) -> Result<f64> {
@@ -64,7 +106,7 @@ index a23695f..c449c3e 100644
      }
  
      fn power_usage(&self) -> Result<f64> {
-@@ -93,7 +109,11 @@ impl GpuImpl for OtherGpu {
+@@ -93,7 +113,11 @@ impl GpuImpl for OtherGpu {
      }
  
      fn core_frequency(&self) -> Result<f64> {
@@ -320,10 +362,32 @@ index 0000000..cf33fbb
 +    }
 +}
 diff --git a/src/ui/pages/gpu.rs b/src/ui/pages/gpu.rs
-index 716c85a..fdd0a84 100644
+index 716c85a..3fa2f3b 100644
 --- a/src/ui/pages/gpu.rs
 +++ b/src/ui/pages/gpu.rs
-@@ -245,10 +245,23 @@ impl ResGPU {
+@@ -64,7 +64,7 @@ mod imp {
+         pub link: TemplateChild<adw::ActionRow>,
+ 
+         #[property(get)]
+-        uses_meter: Cell<bool>,
++        pub(super) uses_meter: Cell<bool>,
+ 
+         #[property(get)]
+         main_graph_color: glib::Bytes,
+@@ -197,6 +197,12 @@ impl ResGPU {
+         glib::Object::new::<Self>()
+     }
+ 
++    pub fn disable_usage_meter(&self) {
++        // `uses_meter` is a read-only GObject property: set the backing Cell
++        // before the page is registered with the sidebar.
++        self.imp().uses_meter.set(false);
++    }
++
+     pub fn init(&self, gpu: &Gpu, secondary_ord: u32) {
+         self.set_secondary_ord(secondary_ord);
+         self.setup_widgets(gpu);
+@@ -245,10 +251,23 @@ impl ResGPU {
          imp.temperature.graph().set_graph_color(0xa5, 0x1d, 0x2d);
          imp.temperature.graph().set_locked_max_y(None);
  
@@ -351,3 +415,63 @@ index 716c85a..fdd0a84 100644
  
          match gpu.gpu_identifier() {
              GpuIdentifier::PciSlot(pci_slot) => {
+@@ -296,6 +315,7 @@ impl ResGPU {
+             power_cap_max,
+             link,
+             nvidia: _,
++            qualcomm_adreno: _,
+         } = gpu_data;
+ 
+         imp.gpu_usage.add_fraction_point(*usage_fraction);
+diff --git a/src/ui/window.rs b/src/ui/window.rs
+index c3f9c95..cd10b0e 100644
+--- a/src/ui/window.rs
++++ b/src/ui/window.rs
+@@ -33,6 +33,25 @@ use super::pages::gpu::ResGPU;
+ use super::pages::network::ResNetwork;
+ use super::pages::npu::ResNPU;
+ 
++// On Qualcomm Adreno, the msm driver currently offers per-process DRM fdinfo,
++// but Resources 51 has no trustworthy device-wide utilization data. Do not
++// turn absent values into fictitious 0% usage or 0 B of VRAM.
++fn can_merge_process_gpu_metrics(nvidia: bool, qualcomm_adreno: bool) -> bool {
++    !nvidia && !qualcomm_adreno
++}
++
++#[cfg(test)]
++mod qualcomm_gpu_policy_tests {
++    use super::can_merge_process_gpu_metrics;
++
++    #[test]
++    fn missing_adreno_usage_must_not_be_reported_as_zero() {
++        assert!(!can_merge_process_gpu_metrics(false, true));
++        assert!(can_merge_process_gpu_metrics(false, false));
++        assert!(!can_merge_process_gpu_metrics(true, false));
++    }
++}
++
+ #[derive(Debug, Clone)]
+ pub enum Action {
+     ManipulateProcesses(ProcessAction, Vec<libc::pid_t>, ToastOverlay),
+@@ -466,6 +485,12 @@ impl MainWindow {
+ 
+         for (i, gpu) in gpus.iter().enumerate() {
+             let page = ResGPU::new();
++            // Resources lacks a trustworthy device-wide Adreno usage counter:
++            // do not show a zero-percent graph for missing telemetry.
++            if gpu.is_qualcomm_adreno() {
++                page.disable_usage_meter();
++                debug!("Adreno: suppressing unsupported utilization meter");
++            }
+ 
+             let tab_name = if gpus.len() > 1 {
+                 i18n_f("GPU {}", &[&(i + 1).to_string()])
+@@ -667,7 +692,7 @@ impl MainWindow {
+         for ((_, page), mut gpu_data) in gpu_pages.values().zip(gpu_data) {
+             let page = page.content().and_downcast::<ResGPU>().unwrap();
+ 
+-            if !gpu_data.nvidia {
++            if can_merge_process_gpu_metrics(gpu_data.nvidia, gpu_data.qualcomm_adreno) {
+                 // for non-NVIDIA GPUs, we prefer getting the fractions from the processes because they represent the
+                 // average usage during now and the last refresh, while gpu_busy_percent is a snapshot of the current
+                 // usage, which might not be what we want

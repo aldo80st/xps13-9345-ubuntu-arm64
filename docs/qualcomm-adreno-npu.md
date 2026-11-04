@@ -21,6 +21,13 @@ conocido, lee frecuencia en Hz desde devfreq y máximo de los sensores
 térmicos `gpuss` en °C, con fallback a `thermal_zone`. Los sensores
 de la NPU, batería y CPU no se mezclan con los de GPU.
 
+La **segunda iteración** corrige un error adicional de Resources 51:
+`ui/window.rs` convertía `None` en porcentajes ficticios `0 %` de GPU y
+video en equipos sin contadores compatibles. Para Adreno, ahora conserva
+los valores desconocidos y desactiva el medidor de la barra lateral.
+La gráfica de uso de GPU muestra `N/A`; la temperatura y frecuencia siguen
+actualizándose. Una prueba de regresión cubre esta política.
+
 No falsifica **utilización total**, memoria GPU dedicada, potencia ni
 frecuencias no disponibles. La GPU utiliza memoria compartida; no se debe
 inventar una VRAM dedicada a partir de la RAM general. Los contadores
@@ -75,15 +82,35 @@ contenedor ARM64. Nunca reemplaza `/usr/bin/resources`.
 - Ejecución del diagnóstico real: frecuencia 300–1250 MHz de límites,
   8 sensores GPU y 4 térmicos `nsp`, CDSP `running`, dispositivos FastRPC.
 - **Integración combinada CPU + Adreno PASS** con la etiqueta upstream 51.0:
-  `cargo test --locked --all-targets`: **89 pruebas PASS, 0 FAIL**.
+  `cargo test --locked --all-targets`: **90 pruebas PASS, 0 FAIL**.
+  Se añadió una regresión para que `None` en Adreno no se traduzca en `0 %`.
+
 - Build reproducible desde el script del repositorio: **PASS**; conserva
   `/usr/bin/resources` sin cambios.
 - Smoke GUI combinado: **PASS** durante 11 segundos, 6 sensores Qualcomm CPU,
   GPU `Qualcomm Adreno X1-85`, `clock_speed: Some(300000000.0)`,
   temperaturas `Some(77.6)`, `Some(77.2)` y `Some(76.8)`.
   El proceso terminó por el límite previsto de la prueba, no por un panic.
-- La lectura interna y el arranque están verificados; la confirmación
-  visual humana de los subtítulos renderizados es un gate aparte.
+- En el último smoke: `Qualcomm Adreno X1-85`, `clock_speed:
+  Some(300000000.0)`, `temperature: Some(71.2)`,
+  `usage_fraction: None`, `qualcomm_adreno: true` y registro
+  `Adreno: suppressing unsupported utilization meter`.
+- AT-SPI confirmó el proceso gráfico `resources-test` y la ventana
+  `Resources`; GNOME rechazó el servicio ScreenshotWindow con
+  `AccessDenied`. La confirmación humana visual de los subtítulos
+  sigue siendo un gate pendiente, no se deshabilitaron controles
+  de captura del escritorio.
+
+## Prevención de regresiones mediante CI ARM64
+
+El workflow [resources-arm64.yml](../.github/workflows/resources-arm64.yml)
+se ejecuta en un runner GitHub **ARM64 nativo** y reconstruye el contenedor
+Ubuntu 26.10 antes de aplicar ambos parches a GNOME 51.0, ejecutar
+`cargo fmt --all -- --check`, `cargo test --locked --all-targets` y compilar.
+Con `RESOURCES_CI_ONLY=1` genera y valida los binarios y assets sin instalar
+ninguna aplicación en el host efímero. El modo CI se probó localmente en
+el XPS: **90 tests PASS, CI_RESULT=0**. El resultado del runner remoto es
+un gate independiente y deberá comprobarse después del push.
 
 Para revertir la versión aislada:
 
@@ -96,4 +123,5 @@ rm -f ~/.local/share/applications/org.gnome.Resources.QualcommTest.desktop
 
 - [Linux Qualcomm QDA RFC](https://www.spinics.net/lists/kernel/msg6060193.html)
 - [Linux accel/qda v2, 2026](https://lkml.indiana.edu/hypermail/linux/kernel/2608.2/00896.html)
+- [Linux accel/qda v4, 1 nov 2026](https://go.mail-archive.com/dri-devel%40lists.freedesktop.org/msg649277.html), **serie en revisión, no instalada**
 - [GNOME Resources](https://gitlab.gnome.org/GNOME/Incubator/resources)

@@ -21,7 +21,11 @@ if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "ERROR: this workflow is for an aarch64 host." >&2
   exit 2
 fi
-for program in git docker glib-compile-schemas; do
+required_programs=(git docker)
+if [[ "${RESOURCES_CI_ONLY:-0}" != "1" ]]; then
+  required_programs+=(glib-compile-schemas)
+fi
+for program in "${required_programs[@]}"; do
   command -v "$program" >/dev/null || { echo "Missing: $program" >&2; exit 2; }
 done
 for patch in "${PATCHES[@]}"; do
@@ -65,6 +69,16 @@ docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
       --target=/src/out/resources.gresource data/resources/resources.gresource.xml
     cp /cache/target/debug/resources /src/out/resources-test
   '
+
+# In CI, validate build artifacts and tests without installing a desktop
+# launcher or writing into a host user's GNOME profile.
+if [[ "${RESOURCES_CI_ONLY:-0}" == "1" ]]; then
+  test -s "$WORK/out/resources-test"
+  test -s "$WORK/out/resources.gresource"
+  echo "PASS: Resources 51.0 source=$COMMIT (CI, Qualcomm CPU + Adreno GPU)"
+  sha256sum "$WORK/out/resources-test" "$WORK/out/resources.gresource"
+  exit 0
+fi
 
 sed -e "s/@app-id@/$APP_ID/g" \
     -e 's/@gettext-package@/resources/g' \

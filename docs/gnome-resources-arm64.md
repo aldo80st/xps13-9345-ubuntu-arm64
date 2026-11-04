@@ -83,6 +83,10 @@ actual genera el binario, los assets GTK y el esquema desde **una misma fuente**
 eliminando esa incompatibilidad. Una advertencia Vulkan no fatal permanece
 como observación ajena a este parche.
 
+La validación automática remota ARM64 está definida en
+[resources-arm64.yml](../.github/workflows/resources-arm64.yml), en paralelo
+a la validación Bash existente. El modo CI no instala paquetes en el host.
+
 El script actual en la rama de integración también aplica el parche
 [GPU Adreno](../patches/resources-51-qualcomm-adreno-gpu.patch).
 Ver [diagnóstico GPU/NPU](qualcomm-adreno-npu.md) para los límites de
