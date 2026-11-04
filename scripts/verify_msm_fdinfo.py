@@ -14,11 +14,28 @@ import time
 RE_MSM = re.compile(
     r"Enumerator\((\d+)\)\s*:\s*MsmStats\(\s*gfx_ns:\s*(\d+)\s*,?\s*\)"
 )
+RE_RECORD = re.compile(r"(?m)^    \($")
+RE_PID = re.compile(r"(?m)^        pid:\s*(\d+),")
+RE_START = re.compile(r"(?m)^        starttime:\s*(\d+),")
 
 
 def parse_msm_stats(payload: bytes) -> list[tuple[int, int]]:
     text = payload.decode("utf-8", errors="replace")
     return [(int(card), int(ns)) for card, ns in RE_MSM.findall(text)]
+
+
+def parse_msm_by_process(payload: bytes) -> dict[tuple[int, int, int], int]:
+    """Track process lifetime and GPU card without exposing identifying data."""
+    text = payload.decode("utf-8", errors="replace")
+    entries: dict[tuple[int, int, int], int] = {}
+    for record in RE_RECORD.split(text)[1:]:
+        pid = RE_PID.search(record)
+        started = RE_START.search(record)
+        if not (pid and started):
+            continue
+        for card, nanoseconds in RE_MSM.findall(record):
+            entries[(int(pid.group(1)), int(started.group(1)), int(card))] = int(nanoseconds)
+    return entries
 
 
 def check_driver(card: int, root: pathlib.Path) -> bool:
@@ -29,7 +46,7 @@ def check_driver(card: int, root: pathlib.Path) -> bool:
     return driver in {"msm_dpu", "msm"}
 
 
-def sample(helper: pathlib.Path, root: pathlib.Path) -> tuple[int, int, set[int]]:
+def sample(helper: pathlib.Path, root: pathlib.Path) -> tuple[int, int, set[int], dict[tuple[int, int, int], int]]:
     data = subprocess.run(
         [str(helper), "--once", "--ron"],
         stdout=subprocess.PIPE,
@@ -44,7 +61,14 @@ def sample(helper: pathlib.Path, root: pathlib.Path) -> tuple[int, int, set[int]
     unexpected = [card for card in sorted(cards) if not check_driver(card, root)]
     if unexpected:
         raise ValueError("An MSM client was attributed to a card without the msm driver")
-    return len(entries), sum(ns for _, ns in entries), cards
+    return len(entries), sum(ns for _, ns in entries), cards, parse_msm_by_process(data)
+
+
+def stable_activity_ns(before: dict[tuple[int, int, int], int],
+                       after: dict[tuple[int, int, int], int]) -> tuple[int, int]:
+    shared = before.keys() & after.keys()
+    return (len(shared), sum(after[key] - before[key] for key in shared
+                             if after[key] > before[key]))
 
 
 def main() -> int:
@@ -75,12 +99,17 @@ def main() -> int:
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"INCONCLUSIVE: {type(exc).__name__}: {exc}")
         return 2
-    positive_delta = after[1] > before[1]
+    # Counter totals across all processes can rise only because a process
+    # entered the sample. Compare stable (pid, starttime, card) identities.
+    stable_count, stable_ns = stable_activity_ns(before[3], after[3])
+    positive_delta = stable_ns > 0
     print("MSM_FDINFO=VERIFIED")
     print(f"DRM_CARDS={','.join(str(x) for x in sorted(before[2] | after[2]))}")
     print(f"RECORDS_BEFORE={before[0]}")
     print(f"RECORDS_AFTER={after[0]}")
     print(f"CUMULATIVE_NS_DELTA={after[1] - before[1]}")
+    print(f"STABLE_PROCESS_GROUPS={stable_count}")
+    print(f"STABLE_PROCESS_ACTIVITY_NS={stable_ns}")
     print(f"ENGINE_ACTIVITY_OBSERVED={'YES' if positive_delta else 'NO'}")
     print("GLOBAL_GPU_UTILIZATION=NOT_INFERRED")
     if args.expect_activity and not positive_delta:

@@ -127,6 +127,29 @@ con salida `GLOBAL_GPU_UTILIZATION=NOT_INFERRED`. Tres pruebas del
 verificador (parser, mapeo de controlador y auxiliar sintético) también
 pasaron con `unittest` y se incorporaron al workflow de scripts.
 
+### Validación de identidad estable, segunda iteración
+
+Para no confundir la aparición de procesos nuevos con trabajo GPU, el
+verificador compara la clave interna `(pid, starttime, card)` entre dos
+muestras RON y únicamente suma incrementos positivos de identidades
+estables. **No imprime esas claves**; sólo publica número de grupos,
+incremento acumulado en nanosegundos y estado de actividad. El agregado de
+todos los procesos se conserva como dato de diagnóstico, no como prueba de
+actividad ni porcentaje de ocupación global.
+
+Prueba ejecutada el 3 de noviembre de 2026 en el XPS, con `vkcube`
+(Adreno X1-85) y 1.6 s entre muestras: `DRM_CARDS=1`,
+`STABLE_PROCESS_GROUPS=17`, `STABLE_PROCESS_ACTIVITY_NS=102762755`,
+`ENGINE_ACTIVITY_OBSERVED=YES`, retorno `0`. La suite Python ahora
+contiene **4 pruebas PASS**, incluyendo cambios de inicio de proceso,
+contador reseteado y un cliente nuevo que no cuenta como actividad previa.
+
+**Limitación:** `MsmStats` agrega por proceso los clientes DRM y no conserva
+el identificador de cliente en las muestras RON. Si un cliente nuevo se
+incorpora a un proceso ya existente, la subida de su contador acumulado
+podría reflejar esa incorporación; atribución exacta por cliente requerirá
+una evolución separada del modelo de datos.
+
 Un contraste exploratorio de tiempo de barrido con 3 muestras en el
 mismo equipo dio mediana **0.114 s** para el auxiliar Ubuntu y **0.116 s**
 para el parcheado. El valor es orientativo y **no** prueba una equivalencia
