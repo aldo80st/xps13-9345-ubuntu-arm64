@@ -1,0 +1,458 @@
+diff --git a/lib/process_data/src/fdinfo.rs b/lib/process_data/src/fdinfo.rs
+index b084810..8e10c90 100644
+--- a/lib/process_data/src/fdinfo.rs
++++ b/lib/process_data/src/fdinfo.rs
+@@ -1,6 +1,6 @@
+ use std::collections::{HashMap, HashSet};
+ use std::iter::Sum;
+-use std::path::PathBuf;
++use std::path::{Path, PathBuf};
+ use std::str::FromStr;
+ 
+ use anyhow::{Result, bail};
+@@ -75,6 +75,8 @@ pub struct Fdinfo {
+     pub pid: libc::pid_t,
+     pub fdinfo_num: usize,
+     pub content: HashMap<String, String>,
++    /// The DRM node backing this FD. Needed for correct non-PCI GPU mapping.
++    pub device_node: Option<PathBuf>,
+ }
+ 
+ fn parse_fdinfo<S: Into<String>>(file_contents: S) -> HashMap<String, String> {
+@@ -86,6 +88,13 @@ fn parse_fdinfo<S: Into<String>>(file_contents: S) -> HashMap<String, String> {
+         .collect::<HashMap<_, _>>()
+ }
+ 
++fn drm_client_dedup_key(target: &Path, fields: &HashMap<String, String>) -> (PathBuf, Option<u64>) {
++    (
++        target.to_path_buf(),
++        fields.get("drm-client-id").and_then(|id| id.parse().ok()),
++    )
++}
++
+ pub fn collect_fdinfos(
+     pid: libc::pid_t,
+     non_gpu_fdinfos: &mut HashSet<FdKey>,
+@@ -95,7 +104,9 @@ pub fn collect_fdinfos(
+     let fdinfo_dir = PathBuf::from(format!("/proc/{pid}/fdinfo"));
+     let fd_dir = PathBuf::from(format!("/proc/{pid}/fd"));
+ 
+-    let mut seen_targets: HashMap<PathBuf, usize> = HashMap::new();
++    // Several distinct DRM clients can share the same /dev/dri/renderD128.
++    // Deduplicate by (node, drm-client-id), never by node alone.
++    let mut seen_targets: HashSet<(PathBuf, Option<u64>)> = HashSet::new();
+     let mut return_vec = Vec::new();
+ 
+     for entry in std::fs::read_dir(fdinfo_dir)? {
+@@ -139,18 +150,6 @@ pub fn collect_fdinfos(
+             }
+         }
+ 
+-        if let Some(ref target) = symlink_target {
+-            if let Some(&first_fd) = seen_targets.get(target) {
+-                trace!(
+-                    "fdinfo {} points to same target as fd {} (target: {:?}), skipping",
+-                    fd_num, first_fd, target
+-                );
+-                continue;
+-            }
+-            seen_targets.insert(target.clone(), fd_num);
+-            symlink_cache.insert((pid, fd_num), target.clone());
+-        }
+-
+         trace!("fdinfo passed all checks, reading and parsing…");
+ 
+         let content = match read_parsed::<String>(fdinfo_path) {
+@@ -163,10 +162,20 @@ pub fn collect_fdinfos(
+             }
+         };
+ 
++        let parsed = parse_fdinfo(content);
++        if let Some(ref target) = symlink_target {
++            if !seen_targets.insert(drm_client_dedup_key(target, &parsed)) {
++                trace!("duplicate DRM client fdinfo on same target; skipping fd {fd_num}");
++                continue;
++            }
++            symlink_cache.insert((pid, fd_num), target.clone());
++        }
++
+         return_vec.push(Fdinfo {
+             pid,
+             fdinfo_num: fd_num,
+-            content: parse_fdinfo(content),
++            content: parsed,
++            device_node: symlink_target,
+         });
+     }
+ 
+@@ -210,19 +219,91 @@ fn drm_mem_bytes(driver: &str, fdinfo: &Fdinfo) -> u64 {
+         .unwrap_or_default()
+ }
+ 
+-fn extract_gpu_usage_from_fdinfo(fdinfo: &Fdinfo) -> Result<(GpuIdentifier, GpuUsageStats)> {
++// Qualcomm msm is a platform DRM driver, not PCI. The correct card number
++// comes from the render node's sysfs parent, not from Enumerator(0).
++// A machine may have several DisplayLink/EVDI card devices in front of Adreno.
++fn msm_gpu_identifier(fdinfo: &Fdinfo, sysfs_drm_root: &Path) -> Result<GpuIdentifier> {
++    let target = fdinfo
++        .device_node
++        .as_deref()
++        .ok_or_else(|| anyhow::anyhow!("MSM fdinfo has no DRM device-node provenance"))?;
++    if target.parent() != Some(Path::new("/dev/dri")) {
++        bail!("MSM fdinfo does not reference /dev/dri");
++    }
++    let name = target
++        .file_name()
++        .and_then(|s| s.to_str())
++        .unwrap_or_default();
++    let card_num = if let Some(number) = name.strip_prefix("card") {
++        let parsed = number.parse::<usize>()?;
++        if !sysfs_drm_root.join(name).exists() {
++            bail!("DRM card path not present in sysfs");
++        }
++        parsed
++    } else if name.starts_with("renderD") && name[7..].parse::<usize>().is_ok() {
++        let child_dir = sysfs_drm_root.join(name).join("device/drm");
++        let mut cards = std::fs::read_dir(child_dir)?.filter_map(|entry| {
++            entry
++                .ok()?
++                .file_name()
++                .to_str()?
++                .strip_prefix("card")?
++                .parse::<usize>()
++                .ok()
++        });
++        let card = cards
++            .next()
++            .ok_or_else(|| anyhow::anyhow!("render device has no DRM card"))?;
++        if cards.next().is_some() {
++            bail!("ambiguous DRM card for render device");
++        }
++        card
++    } else {
++        bail!("unsupported DRM node for msm");
++    };
++    Ok(GpuIdentifier::Enumerator(card_num))
++}
++
++fn extract_gpu_usage_from_fdinfo_at(
++    fdinfo: &Fdinfo,
++    sysfs_drm_root: &Path,
++) -> Result<(GpuIdentifier, GpuUsageStats)> {
+     let Some(driver) = fdinfo.content.get(DRM_DRIVER) else {
+         bail!("unable to find gpu information in this fdinfo");
+     };
+ 
+-    let gpu_identifier = fdinfo
+-        .content
+-        .get(DRM_PDEV)
+-        .and_then(|field| PciSlot::from_str(field).ok())
+-        .map(GpuIdentifier::PciSlot)
+-        .unwrap_or_default();
++    let gpu_identifier = if driver == "msm" {
++        msm_gpu_identifier(fdinfo, sysfs_drm_root)?
++    } else {
++        fdinfo
++            .content
++            .get(DRM_PDEV)
++            .and_then(|field| PciSlot::from_str(field).ok())
++            .map(GpuIdentifier::PciSlot)
++            .unwrap_or_default()
++    };
+ 
+     let stats = match driver.as_str() {
++        "msm" => {
++            // Reject missing or malformed counters. Zero is valid ONLY when
++            // the driver actually returned "0 ns" for an identified client.
++            let _client: u64 = fdinfo
++                .content
++                .get("drm-client-id")
++                .ok_or_else(|| anyhow::anyhow!("MSM DRM client ID not published"))?
++                .parse()?;
++            let text = fdinfo
++                .content
++                .get("drm-engine-gpu")
++                .ok_or_else(|| anyhow::anyhow!("MSM gpu engine time missing"))?;
++            let ns = text
++                .trim()
++                .strip_suffix("ns")
++                .ok_or_else(|| anyhow::anyhow!("MSM gpu engine time has unknown units"))?
++                .trim()
++                .parse::<u64>()?;
++            GpuUsageStats::MsmStats { gfx_ns: ns }
++        }
+         "amdgpu" => GpuUsageStats::AmdgpuStats {
+             gfx_ns: drm_field(driver, &GFX_NS_DRM_FIELDS, fdinfo, &RE_DRM_TIME),
+             enc_ns: drm_field(driver, &ENC_NS_DRM_FIELDS, fdinfo, &RE_DRM_TIME),
+@@ -293,11 +374,33 @@ fn extract_npu_usage_from_fdinfo(fdinfo: &Fdinfo) -> Result<(PciSlot, NpuUsageSt
+ pub fn other_gpu_usage_stats(
+     fdinfos: &[Fdinfo],
+     non_gpu_fdinfos: &mut HashSet<FdKey>,
++) -> std::collections::BTreeMap<GpuIdentifier, GpuUsageStats> {
++    other_gpu_usage_stats_at(fdinfos, non_gpu_fdinfos, Path::new("/sys/class/drm"))
++}
++
++fn other_gpu_usage_stats_at(
++    fdinfos: &[Fdinfo],
++    non_gpu_fdinfos: &mut HashSet<FdKey>,
++    sysfs_drm_root: &Path,
+ ) -> std::collections::BTreeMap<GpuIdentifier, GpuUsageStats> {
+     let mut return_map = std::collections::BTreeMap::new();
++    let mut seen_msm_clients = HashSet::<(GpuIdentifier, u64)>::new();
+ 
+     for fdinfo in fdinfos {
+-        if let Ok((identifier, stats)) = extract_gpu_usage_from_fdinfo(fdinfo) {
++        if let Ok((identifier, stats)) = extract_gpu_usage_from_fdinfo_at(fdinfo, sysfs_drm_root) {
++            if matches!(stats, GpuUsageStats::MsmStats { .. }) {
++                let Some(client_id) = fdinfo
++                    .content
++                    .get("drm-client-id")
++                    .and_then(|v| v.parse::<u64>().ok())
++                else {
++                    continue;
++                };
++                if !seen_msm_clients.insert((identifier, client_id)) {
++                    trace!("Duplicate msm DRM client {client_id}; skipping same-client fdinfo");
++                    continue;
++                }
++            }
+             trace!(
+                 "Successfully got GPU statistics from fdinfo {}/{}",
+                 fdinfo.pid, fdinfo.fdinfo_num
+@@ -305,7 +408,16 @@ pub fn other_gpu_usage_stats(
+             return_map
+                 .entry(identifier)
+                 .and_modify(|existing_value: &mut GpuUsageStats| {
+-                    *existing_value = existing_value.greater(&stats);
++                    match (existing_value, stats) {
++                        (
++                            GpuUsageStats::MsmStats { gfx_ns: sum },
++                            GpuUsageStats::MsmStats { gfx_ns: additional },
++                        ) => {
++                            // Multiple distinct DRM clients of this process.
++                            *sum = sum.saturating_add(additional);
++                        }
++                        (existing, other) => *existing = existing.greater(&other),
++                    }
+                 })
+                 .or_insert(stats);
+         } else {
+@@ -350,3 +462,136 @@ pub fn npu_usage_stats(
+ 
+     return_map
+ }
++
++#[cfg(test)]
++mod msm_fdinfo_tests {
++    use super::*;
++    use std::fs;
++    use std::time::{SystemTime, UNIX_EPOCH};
++
++    fn fixture(fd: usize, client: &str, engine: &str, node: &str) -> Fdinfo {
++        Fdinfo {
++            pid: 42,
++            fdinfo_num: fd,
++            device_node: Some(PathBuf::from(node)),
++            content: parse_fdinfo(format!(
++                "drm-driver: msm\n\
++                 drm-client-id: {client}\n\
++                 drm-engine-gpu: {engine}\n\
++                 drm-total-memory: 51200 KiB\n"
++            )),
++        }
++    }
++
++    fn mock_sysfs() -> PathBuf {
++        let ts = SystemTime::now()
++            .duration_since(UNIX_EPOCH)
++            .unwrap()
++            .as_nanos();
++        let root = std::env::temp_dir().join(format!("msm-fdinfo-{}-{ts}", std::process::id()));
++        // card0 would be DisplayLink EVDI on the real XPS.
++        fs::create_dir_all(root.join("card0")).unwrap();
++        fs::create_dir_all(root.join("card1")).unwrap();
++        fs::create_dir_all(root.join("renderD128/device/drm/card1")).unwrap();
++        root
++    }
++
++    #[test]
++    fn msm_fdinfo_maps_render_node_to_card1_not_evdi_card0() {
++        let root = mock_sysfs();
++        let sample = fixture(8, "12", "56000000000 ns", "/dev/dri/renderD128");
++        let (identifier, stats) = extract_gpu_usage_from_fdinfo_at(&sample, &root).unwrap();
++        assert_eq!(identifier, GpuIdentifier::Enumerator(1));
++        assert_eq!(
++            stats,
++            GpuUsageStats::MsmStats {
++                gfx_ns: 56_000_000_000
++            }
++        );
++        assert_eq!(stats.mem(), None); // shared RAM is not dedicated VRAM
++        fs::remove_dir_all(root).unwrap();
++    }
++
++    #[test]
++    fn distinct_msm_clients_are_counted_once_each() {
++        let root = mock_sysfs();
++        let a = fixture(8, "12", "1000000 ns", "/dev/dri/renderD128");
++        let b = fixture(9, "13", "2500000 ns", "/dev/dri/renderD128");
++        // Two file handles to the same DRM client should not count twice.
++        let dup_a = fixture(10, "12", "1000000 ns", "/dev/dri/renderD128");
++        let mut skipped = HashSet::new();
++        let combined = other_gpu_usage_stats_at(&[a, b, dup_a], &mut skipped, &root);
++        assert!(skipped.is_empty());
++        assert_eq!(
++            combined.get(&GpuIdentifier::Enumerator(1)),
++            Some(&GpuUsageStats::MsmStats { gfx_ns: 3_500_000 })
++        );
++        assert!(!combined.contains_key(&GpuIdentifier::Enumerator(0)));
++        fs::remove_dir_all(root).unwrap();
++    }
++
++    #[test]
++    fn client_dedup_preserves_distinct_ids_on_the_same_render_node() {
++        let a = fixture(8, "12", "100 ns", "/dev/dri/renderD128");
++        let b = fixture(9, "13", "200 ns", "/dev/dri/renderD128");
++        let dup_a = fixture(10, "12", "100 ns", "/dev/dri/renderD128");
++        let mut seen = HashSet::new();
++        assert!(seen.insert(drm_client_dedup_key(
++            a.device_node.as_deref().unwrap(),
++            &a.content
++        )));
++        assert!(seen.insert(drm_client_dedup_key(
++            b.device_node.as_deref().unwrap(),
++            &b.content
++        )));
++        assert!(!seen.insert(drm_client_dedup_key(
++            dup_a.device_node.as_deref().unwrap(),
++            &dup_a.content
++        )));
++    }
++
++    #[test]
++    fn malformed_msm_counters_are_never_converted_to_zero_usage() {
++        let root = mock_sysfs();
++        for (client, engine) in [
++            ("8", "wrong units"),
++            ("8", "100 ms"),
++            ("invalid", "0 ns"),
++            ("8", ""),
++            ("8", "18446744073709551616 ns"),
++        ] {
++            let sample = fixture(8, client, engine, "/dev/dri/renderD128");
++            assert!(
++                extract_gpu_usage_from_fdinfo_at(&sample, &root).is_err(),
++                "must reject {client} {engine}"
++            );
++        }
++        let mut missing = fixture(8, "8", "0 ns", "/dev/dri/renderD128");
++        missing.content.remove("drm-engine-gpu");
++        assert!(extract_gpu_usage_from_fdinfo_at(&missing, &root).is_err());
++        let valid_idle = fixture(8, "8", "0 ns", "/dev/dri/renderD128");
++        assert_eq!(
++            extract_gpu_usage_from_fdinfo_at(&valid_idle, &root)
++                .unwrap()
++                .1,
++            GpuUsageStats::MsmStats { gfx_ns: 0 }
++        );
++        fs::remove_dir_all(root).unwrap();
++    }
++
++    #[test]
++    fn unknown_or_ambiguous_gpu_must_not_get_a_guessed_id() {
++        let root = mock_sysfs();
++        let mut sample = fixture(8, "3", "10 ns", "/dev/dri/renderD129");
++        assert!(extract_gpu_usage_from_fdinfo_at(&sample, &root).is_err());
++        sample.device_node = None;
++        assert!(extract_gpu_usage_from_fdinfo_at(&sample, &root).is_err());
++        sample.device_node = Some(PathBuf::from("/dev/accel/accel0"));
++        assert!(extract_gpu_usage_from_fdinfo_at(&sample, &root).is_err());
++
++        fs::create_dir_all(root.join("renderD128/device/drm/card2")).unwrap();
++        let ambiguous = fixture(8, "3", "10 ns", "/dev/dri/renderD128");
++        assert!(extract_gpu_usage_from_fdinfo_at(&ambiguous, &root).is_err());
++        fs::remove_dir_all(root).unwrap();
++    }
++}
+diff --git a/lib/process_data/src/gpu_usage.rs b/lib/process_data/src/gpu_usage.rs
+index aa4890d..5be0bef 100644
+--- a/lib/process_data/src/gpu_usage.rs
++++ b/lib/process_data/src/gpu_usage.rs
+@@ -48,6 +48,10 @@ pub enum GpuUsageStats {
+         gfx_ns: u64,
+         mem_bytes: u64,
+     },
++    /// Per DRM client busy time. Not a device-wide occupancy measurement.
++    MsmStats {
++        gfx_ns: u64,
++    },
+     XeStats {
+         gfx_cycles: u64,
+         gfx_total_cycles: u64,
+@@ -72,6 +76,15 @@ impl GpuUsageStats {
+             | (Self::V3dStats { gfx_ns: a, .. }, Self::V3dStats { gfx_ns: b, .. }) => {
+                 ns_delta_to_usage_fraction(*a, *b, time_delta_ms)
+             }
++            (Self::MsmStats { gfx_ns: newer }, Self::MsmStats { gfx_ns: older }) => {
++                // A reset or a newly opened client is NOT idle GPU time.
++                // Avoid showing a fabricated 0% on this transition.
++                if newer < older {
++                    None
++                } else {
++                    ns_delta_to_usage_fraction(*newer, *older, time_delta_ms)
++                }
++            }
+             (Self::NvidiaStats { gfx_percentage, .. }, Self::NvidiaStats { .. }) => {
+                 Some(gfx_percentage.fraction())
+             }
+@@ -165,7 +178,7 @@ impl GpuUsageStats {
+             | Self::NvidiaStats { mem_bytes, .. }
+             | Self::V3dStats { mem_bytes, .. }
+             | Self::XeStats { mem_bytes, .. } => Some(*mem_bytes),
+-            Self::I915Stats { .. } => None,
++            Self::I915Stats { .. } | Self::MsmStats { .. } => None,
+         }
+     }
+ 
+@@ -204,6 +217,9 @@ impl GpuUsageStats {
+                 gfx_ns: *a_gfx.max(b_gfx),
+                 video_ns: *a_video.max(b_video),
+             },
++            (Self::MsmStats { gfx_ns: a }, Self::MsmStats { gfx_ns: b }) => {
++                Self::MsmStats { gfx_ns: *a.max(b) }
++            }
+             (
+                 Self::NvidiaStats {
+                     gfx_percentage: a_gfx,
+@@ -268,3 +284,31 @@ impl GpuUsageStats {
+         }
+     }
+ }
++
++#[cfg(test)]
++mod msm_tests {
++    use super::GpuUsageStats;
++
++    #[test]
++    fn msm_delta_is_measured_only_with_valid_time_and_monotonic_counter() {
++        let old = GpuUsageStats::MsmStats {
++            gfx_ns: 100_000_000,
++        };
++        let current = GpuUsageStats::MsmStats {
++            gfx_ns: 150_000_000,
++        };
++        assert_eq!(current.gfx_fraction(&old, 1000), Some(0.05));
++        assert_eq!(current.gfx_fraction(&old, 0), None);
++        assert_eq!(old.gfx_fraction(&current, 1000), None);
++        assert_eq!(current.enc_fraction(&old, 1000), None);
++        assert_eq!(current.dec_fraction(&old, 1000), None);
++        assert_eq!(current.mem(), None);
++    }
++
++    #[test]
++    fn msm_duplicate_clients_merge_conservatively() {
++        let a = GpuUsageStats::MsmStats { gfx_ns: 70 };
++        let b = GpuUsageStats::MsmStats { gfx_ns: 90 };
++        assert_eq!(a.greater(&b), b);
++    }
++}
