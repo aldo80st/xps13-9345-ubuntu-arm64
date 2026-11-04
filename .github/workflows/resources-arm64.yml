@@ -1,0 +1,42 @@
+name: Qualcomm Resources ARM64
+on:
+  pull_request:
+    paths:
+      - "patches/resources-51-qualcomm-*.patch"
+      - "scripts/build-resources-arm64.sh"
+      - "containers/resources-arm64/**"
+      - ".github/workflows/resources-arm64.yml"
+  push:
+    branches: [main]
+    paths:
+      - "patches/resources-51-qualcomm-*.patch"
+      - "scripts/build-resources-arm64.sh"
+      - "containers/resources-arm64/**"
+      - ".github/workflows/resources-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resources-arm64:
+    name: Test GNOME Resources 51.0 on ARM64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Confirm native ARM64 and Docker
+        run: |
+          test "$(uname -m)" = "aarch64"
+          docker info --format '{{.Architecture}}'
+          bash -n scripts/build-resources-arm64.sh
+
+      - name: Build and test with same Ubuntu 26.10 ARM64 container as XPS
+        env:
+          RESOURCES_CI_ONLY: "1"
+        run: |
+          bash scripts/build-resources-arm64.sh

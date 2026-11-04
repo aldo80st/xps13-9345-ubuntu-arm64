@@ -3,7 +3,10 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-PATCH="$ROOT/patches/resources-51-qualcomm-cpu-metrics.patch"
+PATCHES=(
+  "$ROOT/patches/resources-51-qualcomm-cpu-metrics.patch"
+  "$ROOT/patches/resources-51-qualcomm-adreno-gpu.patch"
+)
 UPSTREAM="https://gitlab.gnome.org/GNOME/Incubator/resources.git"
 TAG="51.0"
 COMMIT="a44f9a1aecb68b2d893eecffd78112f80b0969c5"
@@ -18,11 +21,20 @@ if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "ERROR: this workflow is for an aarch64 host." >&2
   exit 2
 fi
-for program in git docker glib-compile-schemas; do
+required_programs=(git docker)
+if [[ "${RESOURCES_CI_ONLY:-0}" != "1" ]]; then
+  required_programs+=(glib-compile-schemas)
+fi
+for program in "${required_programs[@]}"; do
   command -v "$program" >/dev/null || { echo "Missing: $program" >&2; exit 2; }
 done
-[[ -f "$PATCH" ]] || { echo "Missing patch: $PATCH" >&2; exit 2; }
-mkdir -p "$WORK/source" "$WORK/out" "$CACHE/cargo" "$CACHE/target" "$PREFIX/schema"
+for patch in "${PATCHES[@]}"; do
+  [[ -f "$patch" ]] || { echo "Missing patch: $patch" >&2; exit 2; }
+done
+mkdir -p "$WORK/source" "$WORK/out" "$CACHE/cargo" "$CACHE/target"
+if [[ "${RESOURCES_CI_ONLY:-0}" != "1" ]]; then
+  mkdir -p "$PREFIX/schema"
+fi
 
 if [[ -n "${RESOURCES_SOURCE_REPO:-}" ]]; then
   upstream_sha="$(git -C "$RESOURCES_SOURCE_REPO" rev-list -n 1 "$TAG")"
@@ -37,8 +49,10 @@ else
     echo "Unexpected $TAG source commit: $upstream_sha" >&2; exit 3;
   }
 fi
-git -C "$WORK/source" apply --check "$PATCH"
-git -C "$WORK/source" apply "$PATCH"
+for patch in "${PATCHES[@]}"; do
+  git -C "$WORK/source" apply --check "$patch"
+  git -C "$WORK/source" apply "$patch"
+done
 
 docker build -t "$IMAGE" -f "$ROOT/containers/resources-arm64/Dockerfile" "$ROOT"
 docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
@@ -58,6 +72,16 @@ docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
       --target=/src/out/resources.gresource data/resources/resources.gresource.xml
     cp /cache/target/debug/resources /src/out/resources-test
   '
+
+# In CI, validate build artifacts and tests without installing a desktop
+# launcher or writing into a host user's GNOME profile.
+if [[ "${RESOURCES_CI_ONLY:-0}" == "1" ]]; then
+  test -s "$WORK/out/resources-test"
+  test -s "$WORK/out/resources.gresource"
+  echo "PASS: Resources 51.0 source=$COMMIT (CI, Qualcomm CPU + Adreno GPU)"
+  sha256sum "$WORK/out/resources-test" "$WORK/out/resources.gresource"
+  exit 0
+fi
 
 sed -e "s/@app-id@/$APP_ID/g" \
     -e 's/@gettext-package@/resources/g' \
@@ -90,7 +114,7 @@ Categories=System;Monitor;
 Terminal=false
 DESKTOP
 
-echo "PASS: Resources 51.0 source=$COMMIT"
+echo "PASS: Resources 51.0 source=$COMMIT (Qualcomm CPU + Adreno GPU)"
 sha256sum "$PREFIX/resources-test" "$PREFIX/resources.gresource"
 echo "Launch: $PREFIX/run"
 echo "Rollback: rm -rf '$PREFIX' '$HOME/.local/share/applications/$APP_ID.desktop'"

@@ -1,0 +1,477 @@
+diff --git a/src/devices/gpu/mod.rs b/src/devices/gpu/mod.rs
+index 8465ab9..1bd4418 100644
+--- a/src/devices/gpu/mod.rs
++++ b/src/devices/gpu/mod.rs
+@@ -2,6 +2,7 @@ mod amd;
+ mod intel;
+ mod nvidia;
+ mod other;
++mod qualcomm;
+ mod v3d;
+ 
+ use anyhow::{Context, Result, bail};
+@@ -61,6 +62,9 @@ pub struct GpuData {
+     pub link: Option<Link>,
+ 
+     pub nvidia: bool,
++    /// True only when the kernel platform driver provides real Adreno telemetry.
++    /// Resource 51 has no trustworthy device-wide usage counter for this SoC.
++    pub qualcomm_adreno: bool,
+ }
+ 
+ impl GpuData {
+@@ -90,6 +94,7 @@ impl GpuData {
+         let link = gpu.link().ok();
+ 
+         let nvidia = matches!(gpu, Gpu::Nvidia(_));
++        let qualcomm_adreno = gpu.is_qualcomm_adreno();
+ 
+         let gpu_data = Self {
+             gpu_identifier,
+@@ -106,6 +111,7 @@ impl GpuData {
+             power_cap_max,
+             link,
+             nvidia,
++            qualcomm_adreno,
+         };
+ 
+         trace!("Gathered GPU data for {gpu_identifier}: {gpu_data:?}");
+@@ -218,6 +224,11 @@ impl std::ops::Deref for Gpu {
+ }
+ 
+ impl Gpu {
++    #[must_use]
++    pub fn is_qualcomm_adreno(&self) -> bool {
++        matches!(self, Self::Other(other) if other.has_adreno_telemetry())
++    }
++
+     /// Returns a `Vec` of all GPUs currently found in the system.
+     ///
+     /// # Errors
+diff --git a/src/devices/gpu/other.rs b/src/devices/gpu/other.rs
+index a23695f..cbaaf0d 100644
+--- a/src/devices/gpu/other.rs
++++ b/src/devices/gpu/other.rs
+@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
+ 
+ use crate::devices::pci::Device;
+ 
+-use super::GpuImpl;
++use super::{GpuImpl, qualcomm::AdrenoTelemetry};
++use std::sync::LazyLock;
++
++static ADRENO_TELEMETRY: LazyLock<Option<AdrenoTelemetry>> = LazyLock::new(AdrenoTelemetry::host);
+ 
+ #[derive(Debug, Clone, Default)]
+ 
+@@ -35,6 +38,18 @@ impl OtherGpu {
+     }
+ }
+ 
++impl OtherGpu {
++    fn adreno(&self) -> Option<&'static AdrenoTelemetry> {
++        (self.driver == "msm_dpu")
++            .then_some(ADRENO_TELEMETRY.as_ref())
++            .flatten()
++    }
++
++    pub(super) fn has_adreno_telemetry(&self) -> bool {
++        self.adreno().is_some()
++    }
++}
++
+ impl GpuImpl for OtherGpu {
+     fn device(&self) -> Option<&'static Device> {
+         self.device
+@@ -57,7 +72,8 @@ impl GpuImpl for OtherGpu {
+     }
+ 
+     fn name(&self) -> Result<String> {
+-        self.drm_name()
++        self.adreno()
++            .map_or_else(|| self.drm_name(), |gpu| Ok(gpu.name().to_owned()))
+     }
+ 
+     fn usage(&self) -> Result<f64> {
+@@ -85,7 +101,11 @@ impl GpuImpl for OtherGpu {
+     }
+ 
+     fn temperature(&self) -> Result<f64> {
+-        self.hwmon_temperature()
++        if let Some(gpu) = self.adreno() {
++            gpu.temperature_c()
++        } else {
++            self.hwmon_temperature()
++        }
+     }
+ 
+     fn power_usage(&self) -> Result<f64> {
+@@ -93,7 +113,11 @@ impl GpuImpl for OtherGpu {
+     }
+ 
+     fn core_frequency(&self) -> Result<f64> {
+-        self.hwmon_core_frequency()
++        if let Some(gpu) = self.adreno() {
++            gpu.frequency_hz()
++        } else {
++            self.hwmon_core_frequency()
++        }
+     }
+ 
+     fn vram_frequency(&self) -> Result<f64> {
+diff --git a/src/devices/gpu/qualcomm.rs b/src/devices/gpu/qualcomm.rs
+new file mode 100644
+index 0000000..cf33fbb
+--- /dev/null
++++ b/src/devices/gpu/qualcomm.rs
+@@ -0,0 +1,236 @@
++//! Read-only Qualcomm Adreno telemetry from upstream kernel interfaces.
++//! The DRM KMS driver may be msm_dpu while the GPU platform device is adreno.
++use std::{
++    fs,
++    path::{Path, PathBuf},
++};
++
++use anyhow::{Context, Result, anyhow};
++
++#[derive(Debug)]
++pub(super) struct AdrenoTelemetry {
++    devfreq: PathBuf,
++    temperatures: Vec<PathBuf>,
++    name: &'static str,
++}
++
++impl AdrenoTelemetry {
++    pub fn host() -> Option<Self> {
++        Self::discover(
++            Path::new("/sys/bus/platform/drivers/adreno"),
++            Path::new("/sys/class/hwmon"),
++            Path::new("/sys/class/thermal"),
++        )
++    }
++
++    fn discover(drivers: &Path, hwmon: &Path, thermal: &Path) -> Option<Self> {
++        // Do not mistake a generic KMS (msm_dpu) device for a running GPU:
++        // the adreno platform driver must have an attached device with devfreq.
++        for entry in fs::read_dir(drivers).ok()?.flatten() {
++            let device = entry.path();
++            let Ok(compatible) = fs::read(device.join("of_node/compatible")) else {
++                continue;
++            };
++            if !compatible
++                .split(|byte| *byte == 0)
++                .any(|value| value.starts_with(b"qcom,adreno"))
++            {
++                continue;
++            }
++
++            let Ok(entries) = fs::read_dir(device.join("devfreq")) else {
++                continue;
++            };
++            let Some(devfreq) = entries
++                .flatten()
++                .map(|entry| entry.path())
++                .find(|path| path.join("cur_freq").is_file())
++            else {
++                continue;
++            };
++
++            let name = if compatible
++                .split(|byte| *byte == 0)
++                .any(|value| value == b"qcom,adreno-43050c01")
++            {
++                "Qualcomm Adreno X1-85"
++            } else {
++                "Qualcomm Adreno"
++            };
++
++            return Some(Self {
++                devfreq,
++                temperatures: find_gpu_sensors(hwmon, thermal),
++                name,
++            });
++        }
++        None
++    }
++
++    pub fn name(&self) -> &'static str {
++        self.name
++    }
++
++    /// Current GPU clock from devfreq, in Hz.
++    pub fn frequency_hz(&self) -> Result<f64> {
++        let hz = fs::read_to_string(self.devfreq.join("cur_freq"))
++            .context("cannot read Adreno devfreq cur_freq")?
++            .trim()
++            .parse::<u64>()?;
++        if hz == 0 {
++            return Err(anyhow!("GPU clock is zero or unavailable"));
++        }
++        Ok(hz as f64)
++    }
++
++    /// Hotspot among the readable GPU subsystem thermal sensors, in °C.
++    pub fn temperature_c(&self) -> Result<f64> {
++        self.temperatures
++            .iter()
++            .filter_map(|path| {
++                fs::read_to_string(path)
++                    .ok()?
++                    .trim()
++                    .parse::<f64>()
++                    .ok()
++                    .map(|value| value / 1000.0)
++                    .filter(|value| value.is_finite() && (-40.0..=150.0).contains(value))
++            })
++            .reduce(f64::max)
++            .ok_or_else(|| anyhow!("no readable Adreno thermal sensor"))
++    }
++}
++
++fn valid_gpu_sensor(name: &str) -> bool {
++    let rest = name
++        .strip_prefix("gpuss_")
++        .and_then(|value| value.strip_suffix("_thermal"))
++        .or_else(|| {
++            name.strip_prefix("gpuss-")
++                .and_then(|value| value.strip_suffix("-thermal"))
++        });
++    rest.is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
++}
++
++fn find_gpu_sensors(hwmon: &Path, thermal: &Path) -> Vec<PathBuf> {
++    let mut sensors = Vec::new();
++    if let Ok(entries) = fs::read_dir(hwmon) {
++        for entry in entries.flatten() {
++            let path = entry.path();
++            let Ok(name) = fs::read_to_string(path.join("name")) else {
++                continue;
++            };
++            let input = path.join("temp1_input");
++            if valid_gpu_sensor(name.trim()) && input.is_file() {
++                sensors.push(input);
++            }
++        }
++    }
++
++    // Same hardware sensors may only exist in thermal_zone on some kernels.
++    if sensors.is_empty() {
++        if let Ok(entries) = fs::read_dir(thermal) {
++            for entry in entries.flatten() {
++                let path = entry.path();
++                let Ok(name) = fs::read_to_string(path.join("type")) else {
++                    continue;
++                };
++                let input = path.join("temp");
++                if valid_gpu_sensor(name.trim()) && input.is_file() {
++                    sensors.push(input);
++                }
++            }
++        }
++    }
++    sensors.sort();
++    sensors
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use std::time::{SystemTime, UNIX_EPOCH};
++
++    #[test]
++    fn gpu_sensor_filter_does_not_accept_cpu_npu_or_memory() {
++        assert!(valid_gpu_sensor("gpuss_0_thermal"));
++        assert!(valid_gpu_sensor("gpuss_7_thermal"));
++        assert!(valid_gpu_sensor("gpuss-2-thermal"));
++        for name in [
++            "cpuss0_top_thermal",
++            "nsp0_thermal",
++            "gpu_thermal",
++            "gpuss_memory_thermal",
++            "gpuss_thermal",
++            "gpussZ_thermal",
++        ] {
++            assert!(!valid_gpu_sensor(name), "{name}");
++        }
++    }
++
++    #[test]
++    fn discovers_only_bound_adreno_and_reads_gpu_telemetry() {
++        let token = SystemTime::now()
++            .duration_since(UNIX_EPOCH)
++            .unwrap()
++            .as_nanos();
++        let root =
++            std::env::temp_dir().join(format!("resources-adreno-{}-{token}", std::process::id()));
++        let drivers = root.join("drivers");
++        let hwmon = root.join("hwmon");
++        let thermal = root.join("thermal");
++        let other = drivers.join("some-display");
++        fs::create_dir_all(other.join("devfreq/noop")).unwrap();
++        fs::create_dir_all(other.join("of_node")).unwrap();
++        fs::write(other.join("of_node/compatible"), b"qcom,x1e80100-dpu\0").unwrap();
++        fs::write(other.join("devfreq/noop/cur_freq"), "900000000").unwrap();
++
++        let adreno = drivers.join("3d00000.gpu");
++        fs::create_dir_all(adreno.join("of_node")).unwrap();
++        fs::create_dir_all(adreno.join("devfreq/3d00000.gpu")).unwrap();
++        fs::write(
++            adreno.join("of_node/compatible"),
++            b"qcom,adreno-43050c01\0qcom,adreno\0",
++        )
++        .unwrap();
++        fs::write(adreno.join("devfreq/3d00000.gpu/cur_freq"), "550000000\n").unwrap();
++        for (number, name, temp) in [
++            (0, "gpuss_0_thermal", "71000"),
++            (1, "gpuss_1_thermal", "73500"),
++            (2, "nsp0_thermal", "99000"),
++        ] {
++            let sensor = hwmon.join(format!("hwmon{number}"));
++            fs::create_dir_all(&sensor).unwrap();
++            fs::write(sensor.join("name"), name).unwrap();
++            fs::write(sensor.join("temp1_input"), temp).unwrap();
++        }
++
++        let found = AdrenoTelemetry::discover(&drivers, &hwmon, &thermal).unwrap();
++        assert_eq!(found.name(), "Qualcomm Adreno X1-85");
++        assert_eq!(found.frequency_hz().unwrap(), 550000000.0);
++        assert_eq!(found.temperature_c().unwrap(), 73.5);
++
++        fs::remove_dir_all(&hwmon).unwrap();
++        let zone = thermal.join("thermal_zone0");
++        fs::create_dir_all(&zone).unwrap();
++        fs::write(zone.join("type"), "gpuss-1-thermal").unwrap();
++        fs::write(zone.join("temp"), "60750").unwrap();
++        let fallback = AdrenoTelemetry::discover(&drivers, &hwmon, &thermal).unwrap();
++        assert_eq!(fallback.temperature_c().unwrap(), 60.75);
++        fs::remove_dir_all(&root).unwrap();
++    }
++
++    #[test]
++    fn no_adreno_driver_is_not_a_gpu_telemetry_source() {
++        let root =
++            std::env::temp_dir().join(format!("resources-absent-adreno-{}", std::process::id()));
++        assert!(
++            AdrenoTelemetry::discover(
++                &root.join("no-drivers"),
++                &root.join("hwmon"),
++                &root.join("thermal")
++            )
++            .is_none()
++        );
++    }
++}
+diff --git a/src/ui/pages/gpu.rs b/src/ui/pages/gpu.rs
+index 716c85a..3fa2f3b 100644
+--- a/src/ui/pages/gpu.rs
++++ b/src/ui/pages/gpu.rs
+@@ -64,7 +64,7 @@ mod imp {
+         pub link: TemplateChild<adw::ActionRow>,
+ 
+         #[property(get)]
+-        uses_meter: Cell<bool>,
++        pub(super) uses_meter: Cell<bool>,
+ 
+         #[property(get)]
+         main_graph_color: glib::Bytes,
+@@ -197,6 +197,12 @@ impl ResGPU {
+         glib::Object::new::<Self>()
+     }
+ 
++    pub fn disable_usage_meter(&self) {
++        // `uses_meter` is a read-only GObject property: set the backing Cell
++        // before the page is registered with the sidebar.
++        self.imp().uses_meter.set(false);
++    }
++
+     pub fn init(&self, gpu: &Gpu, secondary_ord: u32) {
+         self.set_secondary_ord(secondary_ord);
+         self.setup_widgets(gpu);
+@@ -245,10 +251,23 @@ impl ResGPU {
+         imp.temperature.graph().set_graph_color(0xa5, 0x1d, 0x2d);
+         imp.temperature.graph().set_locked_max_y(None);
+ 
+-        imp.manufacturer.set_subtitle(
+-            &gpu.get_vendor()
+-                .map_or_else(|_| i18n("N/A"), |vendor| vendor.name().to_string()),
+-        );
++        // Qualcomm Adreno is a platform device, not PCI. Only infer its
++        // manufacturer when the kernel-backed Adreno probe succeeded.
++        imp.manufacturer.set_subtitle(&gpu.get_vendor().map_or_else(
++            |_| {
++                if gpu.driver() == "msm_dpu"
++                    && gpu
++                        .name()
++                        .ok()
++                        .is_some_and(|name| name.starts_with("Qualcomm Adreno"))
++                {
++                    "Qualcomm".to_owned()
++                } else {
++                    i18n("N/A")
++                }
++            },
++            |vendor| vendor.name().to_string(),
++        ));
+ 
+         match gpu.gpu_identifier() {
+             GpuIdentifier::PciSlot(pci_slot) => {
+@@ -296,6 +315,7 @@ impl ResGPU {
+             power_cap_max,
+             link,
+             nvidia: _,
++            qualcomm_adreno: _,
+         } = gpu_data;
+ 
+         imp.gpu_usage.add_fraction_point(*usage_fraction);
+diff --git a/src/ui/window.rs b/src/ui/window.rs
+index c3f9c95..cd10b0e 100644
+--- a/src/ui/window.rs
++++ b/src/ui/window.rs
+@@ -33,6 +33,25 @@ use super::pages::gpu::ResGPU;
+ use super::pages::network::ResNetwork;
+ use super::pages::npu::ResNPU;
+ 
++// On Qualcomm Adreno, the msm driver currently offers per-process DRM fdinfo,
++// but Resources 51 has no trustworthy device-wide utilization data. Do not
++// turn absent values into fictitious 0% usage or 0 B of VRAM.
++fn can_merge_process_gpu_metrics(nvidia: bool, qualcomm_adreno: bool) -> bool {
++    !nvidia && !qualcomm_adreno
++}
++
++#[cfg(test)]
++mod qualcomm_gpu_policy_tests {
++    use super::can_merge_process_gpu_metrics;
++
++    #[test]
++    fn missing_adreno_usage_must_not_be_reported_as_zero() {
++        assert!(!can_merge_process_gpu_metrics(false, true));
++        assert!(can_merge_process_gpu_metrics(false, false));
++        assert!(!can_merge_process_gpu_metrics(true, false));
++    }
++}
++
+ #[derive(Debug, Clone)]
+ pub enum Action {
+     ManipulateProcesses(ProcessAction, Vec<libc::pid_t>, ToastOverlay),
+@@ -466,6 +485,12 @@ impl MainWindow {
+ 
+         for (i, gpu) in gpus.iter().enumerate() {
+             let page = ResGPU::new();
++            // Resources lacks a trustworthy device-wide Adreno usage counter:
++            // do not show a zero-percent graph for missing telemetry.
++            if gpu.is_qualcomm_adreno() {
++                page.disable_usage_meter();
++                debug!("Adreno: suppressing unsupported utilization meter");
++            }
+ 
+             let tab_name = if gpus.len() > 1 {
+                 i18n_f("GPU {}", &[&(i + 1).to_string()])
+@@ -667,7 +692,7 @@ impl MainWindow {
+         for ((_, page), mut gpu_data) in gpu_pages.values().zip(gpu_data) {
+             let page = page.content().and_downcast::<ResGPU>().unwrap();
+ 
+-            if !gpu_data.nvidia {
++            if can_merge_process_gpu_metrics(gpu_data.nvidia, gpu_data.qualcomm_adreno) {
+                 // for non-NVIDIA GPUs, we prefer getting the fractions from the processes because they represent the
+                 // average usage during now and the last refresh, while gpu_busy_percent is a snapshot of the current
+                 // usage, which might not be what we want
