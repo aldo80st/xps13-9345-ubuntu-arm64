@@ -3,7 +3,10 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-PATCH="$ROOT/patches/resources-51-qualcomm-cpu-metrics.patch"
+PATCHES=(
+  "$ROOT/patches/resources-51-qualcomm-cpu-metrics.patch"
+  "$ROOT/patches/resources-51-qualcomm-adreno-gpu.patch"
+)
 UPSTREAM="https://gitlab.gnome.org/GNOME/Incubator/resources.git"
 TAG="51.0"
 COMMIT="a44f9a1aecb68b2d893eecffd78112f80b0969c5"
@@ -21,7 +24,9 @@ fi
 for program in git docker glib-compile-schemas; do
   command -v "$program" >/dev/null || { echo "Missing: $program" >&2; exit 2; }
 done
-[[ -f "$PATCH" ]] || { echo "Missing patch: $PATCH" >&2; exit 2; }
+for patch in "${PATCHES[@]}"; do
+  [[ -f "$patch" ]] || { echo "Missing patch: $patch" >&2; exit 2; }
+done
 mkdir -p "$WORK/source" "$WORK/out" "$CACHE/cargo" "$CACHE/target" "$PREFIX/schema"
 
 if [[ -n "${RESOURCES_SOURCE_REPO:-}" ]]; then
@@ -37,8 +42,10 @@ else
     echo "Unexpected $TAG source commit: $upstream_sha" >&2; exit 3;
   }
 fi
-git -C "$WORK/source" apply --check "$PATCH"
-git -C "$WORK/source" apply "$PATCH"
+for patch in "${PATCHES[@]}"; do
+  git -C "$WORK/source" apply --check "$patch"
+  git -C "$WORK/source" apply "$patch"
+done
 
 docker build -t "$IMAGE" -f "$ROOT/containers/resources-arm64/Dockerfile" "$ROOT"
 docker run --rm --user "$(id -u):$(id -g)" --cap-drop=ALL \
@@ -90,7 +97,7 @@ Categories=System;Monitor;
 Terminal=false
 DESKTOP
 
-echo "PASS: Resources 51.0 source=$COMMIT"
+echo "PASS: Resources 51.0 source=$COMMIT (Qualcomm CPU + Adreno GPU)"
 sha256sum "$PREFIX/resources-test" "$PREFIX/resources.gresource"
 echo "Launch: $PREFIX/run"
 echo "Rollback: rm -rf '$PREFIX' '$HOME/.local/share/applications/$APP_ID.desktop'"

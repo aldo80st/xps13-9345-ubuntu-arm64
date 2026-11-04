@@ -83,6 +83,11 @@ actual genera el binario, los assets GTK y el esquema desde **una misma fuente**
 eliminando esa incompatibilidad. Una advertencia Vulkan no fatal permanece
 como observación ajena a este parche.
 
+El script actual en la rama de integración también aplica el parche
+[GPU Adreno](../patches/resources-51-qualcomm-adreno-gpu.patch).
+Ver [diagnóstico GPU/NPU](qualcomm-adreno-npu.md) para los límites de
+utilización y CDSP.
+
 ## Frecuencia: investigación aparte
 
 Se confirmó `CONFIG_CPU_FREQ=y` y la presencia del módulo firmado
