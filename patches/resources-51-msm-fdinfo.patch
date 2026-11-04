@@ -1,5 +1,5 @@
 diff --git a/lib/process_data/src/fdinfo.rs b/lib/process_data/src/fdinfo.rs
-index b084810..8e10c90 100644
+index b084810..99bb0c6 100644
 --- a/lib/process_data/src/fdinfo.rs
 +++ b/lib/process_data/src/fdinfo.rs
 @@ -1,6 +1,6 @@
@@ -85,7 +85,7 @@ index b084810..8e10c90 100644
          });
      }
  
-@@ -210,19 +219,91 @@ fn drm_mem_bytes(driver: &str, fdinfo: &Fdinfo) -> u64 {
+@@ -210,19 +219,104 @@ fn drm_mem_bytes(driver: &str, fdinfo: &Fdinfo) -> u64 {
          .unwrap_or_default()
  }
  
@@ -135,6 +135,15 @@ index b084810..8e10c90 100644
 +    Ok(GpuIdentifier::Enumerator(card_num))
 +}
 +
++/// Deterministic SplitMix64 fingerprint. Never exposed as a raw client ID.
++/// A count is recorded separately to distinguish client-set changes.
++fn msm_client_fingerprint(client_id: u64) -> u64 {
++    let mut v = client_id.wrapping_add(0x9E37_79B9_7F4A_7C15);
++    v = (v ^ (v >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
++    v = (v ^ (v >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
++    v ^ (v >> 31)
++}
++
 +fn extract_gpu_usage_from_fdinfo_at(
 +    fdinfo: &Fdinfo,
 +    sysfs_drm_root: &Path,
@@ -164,7 +173,7 @@ index b084810..8e10c90 100644
 +        "msm" => {
 +            // Reject missing or malformed counters. Zero is valid ONLY when
 +            // the driver actually returned "0 ns" for an identified client.
-+            let _client: u64 = fdinfo
++            let client_id: u64 = fdinfo
 +                .content
 +                .get("drm-client-id")
 +                .ok_or_else(|| anyhow::anyhow!("MSM DRM client ID not published"))?
@@ -179,12 +188,16 @@ index b084810..8e10c90 100644
 +                .ok_or_else(|| anyhow::anyhow!("MSM gpu engine time has unknown units"))?
 +                .trim()
 +                .parse::<u64>()?;
-+            GpuUsageStats::MsmStats { gfx_ns: ns }
++            GpuUsageStats::MsmStats {
++                gfx_ns: ns,
++                client_fingerprint: msm_client_fingerprint(client_id),
++                client_count: 1,
++            }
 +        }
          "amdgpu" => GpuUsageStats::AmdgpuStats {
              gfx_ns: drm_field(driver, &GFX_NS_DRM_FIELDS, fdinfo, &RE_DRM_TIME),
              enc_ns: drm_field(driver, &ENC_NS_DRM_FIELDS, fdinfo, &RE_DRM_TIME),
-@@ -293,11 +374,33 @@ fn extract_npu_usage_from_fdinfo(fdinfo: &Fdinfo) -> Result<(PciSlot, NpuUsageSt
+@@ -293,11 +387,33 @@ fn extract_npu_usage_from_fdinfo(fdinfo: &Fdinfo) -> Result<(PciSlot, NpuUsageSt
  pub fn other_gpu_usage_stats(
      fdinfos: &[Fdinfo],
      non_gpu_fdinfos: &mut HashSet<FdKey>,
@@ -219,25 +232,36 @@ index b084810..8e10c90 100644
              trace!(
                  "Successfully got GPU statistics from fdinfo {}/{}",
                  fdinfo.pid, fdinfo.fdinfo_num
-@@ -305,7 +408,16 @@ pub fn other_gpu_usage_stats(
+@@ -305,7 +421,27 @@ pub fn other_gpu_usage_stats(
              return_map
                  .entry(identifier)
                  .and_modify(|existing_value: &mut GpuUsageStats| {
 -                    *existing_value = existing_value.greater(&stats);
 +                    match (existing_value, stats) {
 +                        (
-+                            GpuUsageStats::MsmStats { gfx_ns: sum },
-+                            GpuUsageStats::MsmStats { gfx_ns: additional },
++                            GpuUsageStats::MsmStats {
++                                gfx_ns: sum,
++                                client_fingerprint: sum_identity,
++                                client_count: sum_count,
++                            },
++                            GpuUsageStats::MsmStats {
++                                gfx_ns: additional,
++                                client_fingerprint: new_identity,
++                                client_count: new_count,
++                            },
 +                        ) => {
-+                            // Multiple distinct DRM clients of this process.
++                            // XOR is order-independent: read_dir can return FDs
++                            // in a different order on successive samples.
 +                            *sum = sum.saturating_add(additional);
++                            *sum_identity ^= new_identity;
++                            *sum_count = sum_count.saturating_add(new_count);
 +                        }
 +                        (existing, other) => *existing = existing.greater(&other),
 +                    }
                  })
                  .or_insert(stats);
          } else {
-@@ -350,3 +462,136 @@ pub fn npu_usage_stats(
+@@ -350,3 +486,157 @@ pub fn npu_usage_stats(
  
      return_map
  }
@@ -284,7 +308,9 @@ index b084810..8e10c90 100644
 +        assert_eq!(
 +            stats,
 +            GpuUsageStats::MsmStats {
-+                gfx_ns: 56_000_000_000
++                gfx_ns: 56_000_000_000,
++                client_fingerprint: msm_client_fingerprint(12),
++                client_count: 1,
 +            }
 +        );
 +        assert_eq!(stats.mem(), None); // shared RAM is not dedicated VRAM
@@ -303,9 +329,24 @@ index b084810..8e10c90 100644
 +        assert!(skipped.is_empty());
 +        assert_eq!(
 +            combined.get(&GpuIdentifier::Enumerator(1)),
-+            Some(&GpuUsageStats::MsmStats { gfx_ns: 3_500_000 })
++            Some(&GpuUsageStats::MsmStats {
++                gfx_ns: 3_500_000,
++                client_fingerprint: msm_client_fingerprint(12) ^ msm_client_fingerprint(13),
++                client_count: 2,
++            })
 +        );
 +        assert!(!combined.contains_key(&GpuIdentifier::Enumerator(0)));
++        // read_dir/fdinfo can present DRM clients in arbitrary order;
++        // the identity must remain stable across permutations.
++        let reverse = other_gpu_usage_stats_at(
++            &[
++                fixture(9, "13", "2500000 ns", "/dev/dri/renderD128"),
++                fixture(8, "12", "1000000 ns", "/dev/dri/renderD128"),
++            ],
++            &mut HashSet::new(),
++            &root,
++        );
++        assert_eq!(combined, reverse);
 +        fs::remove_dir_all(root).unwrap();
 +    }
 +
@@ -353,7 +394,11 @@ index b084810..8e10c90 100644
 +            extract_gpu_usage_from_fdinfo_at(&valid_idle, &root)
 +                .unwrap()
 +                .1,
-+            GpuUsageStats::MsmStats { gfx_ns: 0 }
++            GpuUsageStats::MsmStats {
++                gfx_ns: 0,
++                client_fingerprint: msm_client_fingerprint(8),
++                client_count: 1,
++            }
 +        );
 +        fs::remove_dir_all(root).unwrap();
 +    }
@@ -375,28 +420,46 @@ index b084810..8e10c90 100644
 +    }
 +}
 diff --git a/lib/process_data/src/gpu_usage.rs b/lib/process_data/src/gpu_usage.rs
-index aa4890d..5be0bef 100644
+index aa4890d..546366d 100644
 --- a/lib/process_data/src/gpu_usage.rs
 +++ b/lib/process_data/src/gpu_usage.rs
-@@ -48,6 +48,10 @@ pub enum GpuUsageStats {
+@@ -48,6 +48,14 @@ pub enum GpuUsageStats {
          gfx_ns: u64,
          mem_bytes: u64,
      },
 +    /// Per DRM client busy time. Not a device-wide occupancy measurement.
 +    MsmStats {
 +        gfx_ns: u64,
++        /// Order-independent fingerprint of DRM client identities in this process.
++        /// Not used for client identification outside process-data.
++        client_fingerprint: u64,
++        client_count: u32,
 +    },
      XeStats {
          gfx_cycles: u64,
          gfx_total_cycles: u64,
-@@ -72,6 +76,15 @@ impl GpuUsageStats {
+@@ -72,6 +80,29 @@ impl GpuUsageStats {
              | (Self::V3dStats { gfx_ns: a, .. }, Self::V3dStats { gfx_ns: b, .. }) => {
                  ns_delta_to_usage_fraction(*a, *b, time_delta_ms)
              }
-+            (Self::MsmStats { gfx_ns: newer }, Self::MsmStats { gfx_ns: older }) => {
-+                // A reset or a newly opened client is NOT idle GPU time.
-+                // Avoid showing a fabricated 0% on this transition.
-+                if newer < older {
++            (
++                Self::MsmStats {
++                    gfx_ns: newer,
++                    client_fingerprint: newer_fingerprint,
++                    client_count: newer_count,
++                },
++                Self::MsmStats {
++                    gfx_ns: older,
++                    client_fingerprint: older_fingerprint,
++                    client_count: older_count,
++                },
++            ) => {
++                // A new/closed client makes summed lifetime counters incomparable.
++                // A reset is also unknown, never a fabricated 0% GPU sample.
++                if newer_fingerprint != older_fingerprint
++                    || newer_count != older_count
++                    || newer < older
++                {
 +                    None
 +                } else {
 +                    ns_delta_to_usage_fraction(*newer, *older, time_delta_ms)
@@ -405,7 +468,7 @@ index aa4890d..5be0bef 100644
              (Self::NvidiaStats { gfx_percentage, .. }, Self::NvidiaStats { .. }) => {
                  Some(gfx_percentage.fraction())
              }
-@@ -165,7 +178,7 @@ impl GpuUsageStats {
+@@ -165,7 +196,7 @@ impl GpuUsageStats {
              | Self::NvidiaStats { mem_bytes, .. }
              | Self::V3dStats { mem_bytes, .. }
              | Self::XeStats { mem_bytes, .. } => Some(*mem_bytes),
@@ -414,17 +477,30 @@ index aa4890d..5be0bef 100644
          }
      }
  
-@@ -204,6 +217,9 @@ impl GpuUsageStats {
+@@ -204,6 +235,22 @@ impl GpuUsageStats {
                  gfx_ns: *a_gfx.max(b_gfx),
                  video_ns: *a_video.max(b_video),
              },
-+            (Self::MsmStats { gfx_ns: a }, Self::MsmStats { gfx_ns: b }) => {
-+                Self::MsmStats { gfx_ns: *a.max(b) }
-+            }
++            (
++                Self::MsmStats {
++                    gfx_ns: a,
++                    client_fingerprint: af,
++                    client_count: ac,
++                },
++                Self::MsmStats {
++                    gfx_ns: b,
++                    client_fingerprint: bf,
++                    client_count: bc,
++                },
++            ) if af == bf && ac == bc => Self::MsmStats {
++                gfx_ns: *a.max(b),
++                client_fingerprint: *af,
++                client_count: *ac,
++            },
              (
                  Self::NvidiaStats {
                      gfx_percentage: a_gfx,
-@@ -268,3 +284,31 @@ impl GpuUsageStats {
+@@ -268,3 +315,55 @@ impl GpuUsageStats {
          }
      }
  }
@@ -437,9 +513,13 @@ index aa4890d..5be0bef 100644
 +    fn msm_delta_is_measured_only_with_valid_time_and_monotonic_counter() {
 +        let old = GpuUsageStats::MsmStats {
 +            gfx_ns: 100_000_000,
++            client_fingerprint: 17,
++            client_count: 1,
 +        };
 +        let current = GpuUsageStats::MsmStats {
 +            gfx_ns: 150_000_000,
++            client_fingerprint: 17,
++            client_count: 1,
 +        };
 +        assert_eq!(current.gfx_fraction(&old, 1000), Some(0.05));
 +        assert_eq!(current.gfx_fraction(&old, 0), None);
@@ -447,12 +527,32 @@ index aa4890d..5be0bef 100644
 +        assert_eq!(current.enc_fraction(&old, 1000), None);
 +        assert_eq!(current.dec_fraction(&old, 1000), None);
 +        assert_eq!(current.mem(), None);
++        let changed_client = GpuUsageStats::MsmStats {
++            gfx_ns: 200_000_000,
++            client_fingerprint: 18,
++            client_count: 1,
++        };
++        assert_eq!(changed_client.gfx_fraction(&old, 1000), None);
++        let new_client = GpuUsageStats::MsmStats {
++            gfx_ns: 200_000_000,
++            client_fingerprint: 17,
++            client_count: 2,
++        };
++        assert_eq!(new_client.gfx_fraction(&old, 1000), None);
 +    }
 +
 +    #[test]
 +    fn msm_duplicate_clients_merge_conservatively() {
-+        let a = GpuUsageStats::MsmStats { gfx_ns: 70 };
-+        let b = GpuUsageStats::MsmStats { gfx_ns: 90 };
++        let a = GpuUsageStats::MsmStats {
++            gfx_ns: 70,
++            client_fingerprint: 17,
++            client_count: 1,
++        };
++        let b = GpuUsageStats::MsmStats {
++            gfx_ns: 90,
++            client_fingerprint: 17,
++            client_count: 1,
++        };
 +        assert_eq!(a.greater(&b), b);
 +    }
 +}

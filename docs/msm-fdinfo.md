@@ -27,7 +27,7 @@ drm-total-memory: [KiB de memoria compartida]
 
 Patch: [resources-51-msm-fdinfo.patch](../patches/resources-51-msm-fdinfo.patch).
 
-1. Registra `MsmStats { gfx_ns }`, preservando la semántica de
+1. Registra `MsmStats { gfx_ns, client_fingerprint, client_count }`, preservando la semántica de
    **tiempo GPU por cliente**, no porcentaje de utilización global.
 2. Asocia los FDs DRM al identificador correcto mediante la cadena real
    `/dev/dri/renderD128` → `/sys/class/drm/renderD128/device/drm/card1`.
@@ -36,8 +36,11 @@ Patch: [resources-51-msm-fdinfo.patch](../patches/resources-51-msm-fdinfo.patch)
    varios clientes distintos asociados a un proceso y evita contar varias
    FDs del mismo cliente.
 4. Rechaza unidades y contadores malformados, mapeos ambiguos y períodos
-   de muestreo inválidos. Un contador que disminuye no se interpreta como
-   `0 %` de actividad: la muestra es desconocida.
+   de muestreo inválidos. Un contador que disminuye o un conjunto de clientes
+   diferente (huella+conteo) no se interpreta como `0 %` de actividad:
+   la muestra es desconocida. La huella es una combinación determinista de
+   identificadores de cliente y puede colisionar excepcionalmente; no se
+   interpreta como una identidad criptográfica.
 5. No inventa memoria de video **dedicada** ni codificación/decodificación.
 6. Conserva **N/A** en el panel de utilización global de GPU: las estadísticas
    por cliente **no equivalen** a telemetría hardware global.
@@ -144,11 +147,24 @@ Prueba ejecutada el 3 de noviembre de 2026 en el XPS, con `vkcube`
 contiene **4 pruebas PASS**, incluyendo cambios de inicio de proceso,
 contador reseteado y un cliente nuevo que no cuenta como actividad previa.
 
-**Limitación:** `MsmStats` agrega por proceso los clientes DRM y no conserva
-el identificador de cliente en las muestras RON. Si un cliente nuevo se
-incorpora a un proceso ya existente, la subida de su contador acumulado
-podría reflejar esa incorporación; atribución exacta por cliente requerirá
-una evolución separada del modelo de datos.
+**Iteración adicional, validada:** el modelo Rust ahora conserva también una
+huella XOR de identificadores mezclados con SplitMix64 y un conteo de clientes
+por proceso. La UI invalida la comparación si cambia esa pareja; el
+verificador externo también exige igualdad de la huella y el conteo, junto
+con `(pid, starttime, card)`. Esto elimina falsos incrementos cuando se
+abre/cierra un cliente DRM en las pruebas realizadas.
+
+Un cliente DRM puede ser compartido entre procesos y la huella compacta
+(64 bits + conteo) no equivale a conservar el conjunto exacto; una colisión
+es teóricamente posible. No afirmar identificación individual perfecta ni
+porcentaje global. Los identificadores originales de clientes no se muestran
+en reportes del comprobador.
+
+Validación adicional del 3 de noviembre en el XPS: durante una nueva prueba
+Vulkan, los registros pasaron de **21 a 22**; se compararon **21 grupos
+estables**, con `STABLE_PROCESS_ACTIVITY_NS=45444202` y `EXIT=0`. El
+constructor completo con huella de clientes volvió a pasar **90 + 21 tests**
+y la instalación aislada.
 
 Un contraste exploratorio de tiempo de barrido con 3 muestras en el
 mismo equipo dio mediana **0.114 s** para el auxiliar Ubuntu y **0.116 s**
