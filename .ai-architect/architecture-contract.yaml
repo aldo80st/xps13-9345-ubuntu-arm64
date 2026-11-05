@@ -1,0 +1,104 @@
+schema_version: "1.0.0"
+revision: 1
+scope: "pilot-npu-dell-xps-9345-ubuntu-arm64"
+architecture_style: "direct-integration-no-new-service"
+quality_attributes:
+  -
+    name: "stability"
+    priority: 1
+    rationale: "El XPS es una computadora activa."
+    measurable_signal: "Sin bloqueos no recuperados; rollback definido."
+  -
+    name: "verifiability"
+    priority: 1
+    rationale: "Un CDSP running no demuestra inferencia."
+    measurable_signal: "Validador QNN y LLM con backend NPU explícito."
+  -
+    name: "privacy"
+    priority: 2
+    rationale: "El repositorio es público."
+    measurable_signal: "Sin IDs privados, secretos, blobs ni logs crudos."
+  -
+    name: "performance"
+    priority: 3
+    rationale: "La NPU puede ser más lenta que la GPU."
+    measurable_signal: "Tokens/s y latencia repetibles por backend."
+components:
+  -
+    id: "diagnostic"
+    responsibility: "Invocar herramientas de diagnóstico externas y producir evidencia."
+    owns_data: []
+    public_interfaces:
+      - "test-evidence"
+  -
+    id: "report"
+    responsibility: "Recopilar evidencia anonimizadas y dictamen Go/No-Go."
+    owns_data:
+      - "anonymized-results"
+    public_interfaces:
+      - "validation-report"
+external_boundaries:
+  -
+    id: "qairt-genie"
+    responsibility: "QAIRT/QNN/Genie en espacio de usuario."
+  -
+    id: "linux-fastrpc"
+    responsibility: "Controlador y firmware Dell CDSP existentes."
+  -
+    id: "llama-cpp"
+    responsibility: "Alternativa evaluable; no componente requerido."
+dependency_rules:
+  -
+    source: "diagnostic"
+    target: "qairt-genie"
+    policy: "allow"
+    rationale: "Ruta prioritaria sin nuevo runtime."
+  -
+    source: "qairt-genie"
+    target: "linux-fastrpc"
+    policy: "allow"
+    rationale: "Transporte y dispositivo existentes."
+  -
+    source: "report"
+    target: "diagnostic"
+    policy: "allow-via-interface"
+    via_interface: "test-evidence"
+    rationale: "Solo consumir evidencia objetiva."
+  -
+    source: "diagnostic"
+    target: "llama-cpp"
+    policy: "allow"
+    rationale: "Comparación condicional tras revisión de estabilidad."
+required_practices:
+  - "Revalidar hardware y kernel antes de cambios, empezando por solo lectura."
+  - "Verificar origen, hash, licencia y compatibilidad de binarios."
+  - "Guardar evidencias anonimizadas y diferenciar observado de verificado."
+  - "Pedir autorización operativa específica, aplicar mínimos privilegios y rollback."
+prohibited_practices:
+  - "Copiar firmware Lenovo al Dell por similitud de SoC."
+  - "Cambiar kernel, firmware, Secure Boot, permisos o servicios sin autorización."
+  - "Ejecutar scripts de terceros con root sin auditoría."
+  - "Publicar secretos, firmware propietario o identificadores de host."
+  - "Atribuir trabajo a NPU sin prueba backend y sin descartar fallback CPU."
+  - "Abrir servicio de inferencia en red o crear otro acceso MCP durante el piloto."
+decision_ids:
+  - "ADR-001"
+unresolved_questions:
+  -
+    id: "Q-001"
+    question: "¿Qué build QAIRT ARM64 funciona en X1E80100 Linux?"
+    decision_impact: "Condiciona etapa M2."
+    critical: false
+    answer: null
+  -
+    id: "Q-002"
+    question: "¿Qué librerías y shells DSP son compatibles y legalmente accesibles?"
+    decision_impact: "Condiciona M1/M2."
+    critical: false
+    answer: null
+  -
+    id: "Q-003"
+    question: "¿Podemos medir consumo energético de manera no invasiva?"
+    decision_impact: "Determina alcance de M4."
+    critical: false
+    answer: null
