@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # User-local FastRPC+GenieX QAIRT smoke. Never modifies firmware or device ACLs.
 set -Eeuo pipefail
-action="$1"
+action="${1:-preflight}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LAB="$HOME/labs/xps13-9345-hexagon"
 GENIEX="$LAB/geniex/v0.10.0"
