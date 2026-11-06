@@ -48,3 +48,25 @@ Usage (only on the XPS and once remote access works):
 **Límites de evidencia:** no se ha efectuado prueba de estrés, disponibilidad extendida, reinicio completo de Ubuntu ni acceso al servidor tras cierre de sesión. Esta evidencia no demuestra SLA 24/7. La instancia observada ya estaba instalada a las 14:57 hora local; no volver a instalarla si funciona. No se realizó merge, modificación de firmware, FastRPC o puertos remotos.
 
 **Operación:** `systemctl --user status ollama-local.service` y `curl http://127.0.0.1:11434/api/version`. La API puede consumirse por clientes locales con base URL `http://127.0.0.1:11434/v1`, sin exponerla a la red. No configurar `linger` ni proxy de autenticación sin autorización adicional.
+
+## Retest de estabilidad y recuperación — 2026-11-06
+
+**Observación adicional (hora local Chihuahua 15:34–15:37):** prueba independiente sobre el servicio existente sin reinstalar Ollama ni modificar FastRPC, kernel, firmware o red.
+
+| Verificación | Evidencia |
+| --- | --- |
+| Servicio antes de prueba | `active/running`, Ollama `0.40.14`, `qwen3.5:0.8b` disponible |
+| Escucha | `127.0.0.1:11434`, sin dirección no-loopback |
+| Inferencia antes del reinicio | 3/3 HTTP 200 y respuestas de texto no vacías (0.76, 0.14, 0.21 s) |
+| Streaming antes del reinicio | SSE con terminador `[DONE]`, PASS |
+| Reinicio del servicio | `systemctl --user restart ollama-local.service`, completado sin errores; PID renovado |
+| API tras el reinicio | GET `/api/version` 200, modelo presente en `/v1/models` |
+| Inferencias consecutivas después de reiniciar | **6/6 PASS** (respuestas HTTP 200 no vacías) |
+| Latencias post-reinicio | 18.22, 21.95, 25.40, 14.82, 13.64, 22.93 s; **no** confundir con benchmark de rendimiento |
+| Streaming después del reinicio | 125 eventos SSE y terminador `[DONE]`, exit code 0 |
+| Estado final | `ActiveState=active`, `SubState=running`, `UnitFileState=enabled`, `NRestarts=0`, `Result=success` |
+| Backend | `size_vram=0`; ninguna prueba de ejecución Hexagon NPU |
+
+**Dictamen:** la API OpenAI-compatible cumple el hito de **funcionalidad y recuperación local** con las pruebas efectuadas. Las respuestas largas y las latencias variables del modelo pequeño justifican pruebas posteriores de calidad y optimización, pero no invalidan la disponibilidad funcional medida. **Límite:** no se ha probado disponibilidad durante días, concurrencia, reinicio completo del equipo, suspensión ni servicio persistente sin sesión de usuario. No declarar SLA 24/7 ni NPU habilitada.
+
+No se abrió un endpoint de red, no se hizo merge ni hubo intervención sobre dispositivos DSP.
