@@ -38,8 +38,14 @@ install() {
   mkdir -p "$ROOT" "$CACHE" "$MODELS" "$(dirname "$UNIT")"
   if test ! -x "$DEST/bin/ollama"; then
     file="$CACHE/ollama-linux-arm64-v$VERSION.tar.zst"
-    curl -fL --retry 3 --retry-delay 3 --continue-at - -o "$file" "$URL"
-    got="$(sha256sum "$file" | awk '{print $1}')"
+    got=""
+    if test -f "$file"; then
+      got="$(sha256sum "$file" | awk '{print $1}')"
+    fi
+    if test "$got" != "$SHA"; then
+      curl -fL --retry 3 --retry-delay 3 --continue-at - -o "$file" "$URL"
+      got="$(sha256sum "$file" | awk '{print $1}')"
+    fi
     test "$got" = "$SHA" || fail "Invalid release digest; no extraction"
     stage="$(mktemp -d "$ROOT/.stage.XXXXXXXX")"
     trap 'test -z "$stage" || rm -rf -- "$stage"' EXIT
