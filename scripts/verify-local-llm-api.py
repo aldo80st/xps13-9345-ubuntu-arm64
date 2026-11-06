@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test local OpenAI-compatible HTTP and streaming inference with stdlib only."""
 import json
+import subprocess
 import sys
 import time
 from urllib.request import Request, urlopen
@@ -20,6 +21,12 @@ def post(payload):
     return urlopen(request, timeout=180)
 
 def main():
+    listeners = subprocess.run(["ss", "-H", "-lnt", "( sport = :11434 )"],
+                               check=True, capture_output=True, text=True).stdout.splitlines()
+    assert listeners, "No TCP listener on 11434"
+    assert all("127.0.0.1:11434" in ln.split()[3] for ln in listeners), (
+        "API is not bound exclusively to IPv4 localhost"
+    )
     version = get("/api/version")
     assert version.get("version")
     models = get("/v1/models")
