@@ -77,7 +77,8 @@ UMask=0077
 WantedBy=default.target
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable --now ollama-local.service
+  systemctl --user enable ollama-local.service
+  systemctl --user restart ollama-local.service
   ready=0
   for i in $(seq 1 50); do
     if curl -fsS --max-time 2 http://127.0.0.1:11434/api/version >/dev/null 2>&1; then ready=1; break; fi
@@ -85,6 +86,15 @@ EOF
   done
   test "$ready" = 1 || fail "HTTP server not ready"
   OLLAMA_HOST=127.0.0.1:11434 "$DEST/bin/ollama" pull "$MODEL"
+  verify
+  echo "Restarting user service for recovery check..."
+  systemctl --user restart ollama-local.service
+  ready=0
+  for i in $(seq 1 50); do
+    if curl -fsS --max-time 2 http://127.0.0.1:11434/api/version >/dev/null 2>&1; then ready=1; break; fi
+    sleep 1
+  done
+  test "$ready" = 1 || fail "Service failed to recover after restart"
   verify
 }
 case "$ACTION" in
