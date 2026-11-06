@@ -21,3 +21,11 @@ jobs:
           for script in scripts/*.sh; do
             bash -n "$script"
           done
+      - name: Validate Python syntax without importing project code
+        run: |
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          for script in Path("scripts").glob("*.py"):
+              ast.parse(script.read_text(encoding="utf-8"), filename=str(script))
+          PY
