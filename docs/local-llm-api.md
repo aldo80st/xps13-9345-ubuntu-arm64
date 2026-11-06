@@ -13,7 +13,7 @@ Usage (only on the XPS and once remote access works):
 - bash scripts/local-llm-api.sh status
 - bash scripts/local-llm-api.sh rollback
 
-**Acceptance pending execution:** HTTP 200 from /api/version, model listed on /v1/models, three real POST /v1/chat/completions requests with non-empty content, successful SSE stream ending [DONE], listening only on localhost, and repeat success after restarting the user service. The user service starts at login; persistent availability while logged out requires additional approval to enable linger. API has no authentication: never expose it to LAN or Tailscale without a separate access design.
+**Acceptance verified on the XPS (2026-11-06):** HTTP 200 from /api/version, model listed on /v1/models, repeated real POST /v1/chat/completions requests with non-empty content, SSE streaming ending in [DONE], bound exclusively to localhost, and recovery after restarting the user service; see the measured evidence below. The user service starts at login; persistent availability while logged out requires additional approval to enable linger. API has no authentication: never expose it to LAN or Tailscale without a separate access design.
 
 **Rollback:** stops and removes the managed unit, retains the binary and downloaded model data for inspection. Nothing is merged or deployed automatically.
 
