@@ -25,6 +25,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Epic XPS-HIB-01: milestones, agentes y seguimiento](docs/hibernate-epic-tracking.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 - [H1 Qualcomm: matriz y manifiesto de parches](docs/hibernate-qualcomm-h1.md)
+- [H1 PCIe: reconciliación v2/v7 y puerta NO_GO](docs/hibernate-pcie-h1-v7-reconciliation.md)
 - [H2: compilación aislada Dell EC v8 y Device Tree](docs/hibernate-ec-build-h2.md)
 - [H2: procedencia y prueba de ABI del módulo Dell EC](docs/hibernate-ec-module-abi-h2.md)
 
