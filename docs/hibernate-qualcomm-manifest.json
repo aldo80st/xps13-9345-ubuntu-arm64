@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "evidence_date": "2026-11-07",
+  "source_tree": "Ubuntu linux-source-7.3.0=7.3.0-10.10 (M1 audit, not re-inspected in H1); upstream refs: lists.openwall.net",
+  "groups": [
+    {
+      "id": "P1",
+      "name": "pinctrl qcom TLMM restore after hibernation",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/28/768",
+      "evidence_status": "accepted",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "exact-base-backport-check",
+          "resolved": false
+        }
+      ],
+      "risk": "medium",
+      "admission_status": "REVIEW_ONLY",
+      "abi_claim": "UNKNOWN",
+      "notes": "Maintainer 'Applied, thanks!' (brgl tree). Mainline and Ubuntu inclusion UNKNOWN. v4 post: https://lists.openwall.net/linux-kernel/2026/10/21/2649",
+      "commit_sha": "30d9a180c86e3cbd53efb7152e05cb059112f6eb"
+    },
+    {
+      "id": "P2",
+      "name": "PCIe qcom power down on hibernate (freeze) v2",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/12/1513",
+      "evidence_status": "proposed",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "P2a",
+          "resolved": false
+        }
+      ],
+      "risk": "high",
+      "admission_status": "BLOCKED",
+      "abi_claim": "UNKNOWN",
+      "notes": "Written against shutdown series v6; rebase onto v7 NOT established; needs exact dependency review."
+    },
+    {
+      "id": "P2a",
+      "name": "PCIe qcom shutdown() series v7 (3 patches)",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/29/328",
+      "evidence_status": "proposed",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "pcie-v6-v7-dependency-review",
+          "resolved": false
+        },
+        {
+          "id": "dwc-caller-audit",
+          "resolved": false
+        }
+      ],
+      "risk": "high",
+      "admission_status": "BLOCKED",
+      "abi_claim": "UNKNOWN",
+      "notes": "v7 based on PCI tree 17bb0e2f6c80 per posting; touches other DWC drivers via force argument."
+    },
+    {
+      "id": "P3",
+      "name": "soc qcom smp2p restart after hibernate restore",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/09/2521",
+      "evidence_status": "proposed",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "remoteproc-lifecycle",
+          "resolved": false
+        }
+      ],
+      "risk": "high",
+      "admission_status": "BLOCKED",
+      "abi_claim": "UNKNOWN",
+      "notes": "Author reports remote running at image time stays marked running after resume and cannot stop (-22); open upstream."
+    },
+    {
+      "id": "P4",
+      "name": "serial qcom-geni UART reset on restore v2",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/27/2926",
+      "evidence_status": "proposed",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "exact-base-compat",
+          "resolved": false
+        },
+        {
+          "id": "dell-uart-console-mapping",
+          "resolved": false
+        }
+      ],
+      "risk": "medium",
+      "admission_status": "REVIEW_ONLY",
+      "abi_claim": "UNKNOWN",
+      "notes": "Non-console UARTs only per prior review; live status not re-checked in H1."
+    },
+    {
+      "id": "P5",
+      "name": "Bluetooth hci_qca reset IBS state on power off v2",
+      "url": "https://lists.openwall.net/linux-kernel/2026/10/14/2305",
+      "evidence_status": "proposed",
+      "ubuntu_7_3_10_present": false,
+      "dependencies": [
+        {
+          "id": "locking-api-review",
+          "resolved": false
+        },
+        {
+          "id": "dell-bluetooth-test",
+          "resolved": false
+        }
+      ],
+      "risk": "medium",
+      "admission_status": "REVIEW_ONLY",
+      "abi_claim": "UNKNOWN",
+      "notes": "Lenovo hibernation tests used v1; no Dell test; live status not re-checked in H1."
+    }
+  ]
+}
