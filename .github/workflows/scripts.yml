@@ -5,12 +5,14 @@ on:
       - "scripts/**"
       - "tests/**"
       - "docs/hibernate-upstream-projects.lock.json"
+      - "docs/hibernate-canonical-source-i1-evidence.json"
       - ".github/workflows/scripts.yml"
   pull_request:
     paths:
       - "scripts/**"
       - "tests/**"
       - "docs/hibernate-upstream-projects.lock.json"
+      - "docs/hibernate-canonical-source-i1-evidence.json"
       - ".github/workflows/scripts.yml"
   workflow_dispatch:
 permissions:
