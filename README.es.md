@@ -19,6 +19,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Hibernación ARM64: diagnóstico y plan seguro](docs/hibernation-arm64.md)
 - [Hibernación: auditoría M1 de kernel y parches](docs/hibernate-kernel-m1.md)
 - [Hibernación: auditoría automatizada de configuración](docs/hibernate-config-audit.md)
+- [M2: Toolchain ARM64 reproducible y validación de Kconfig](docs/hibernate-m2-toolchain.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 
 ## Política de pruebas

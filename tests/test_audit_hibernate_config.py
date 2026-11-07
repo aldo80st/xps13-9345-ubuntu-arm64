@@ -40,6 +40,35 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(r["unrelated_changed"], [])
         self.assertTrue(r["hibernation_evidence"])
 
+    def test_hibernation_kconfig_selects_lz4_dependencies(self):
+        """kernel/power/Kconfig selects CRYPTO_LZ4, which selects LZ4_COMPRESS."""
+        base = BASE + "CONFIG_CRYPTO_LZ4=m\nCONFIG_LZ4_COMPRESS=m\n"
+        candidate = (BASE.replace("# CONFIG_HIBERNATION is not set", "CONFIG_HIBERNATION=y")
+                     + "CONFIG_CRYPTO_LZ4=y\nCONFIG_LZ4_COMPRESS=y\n")
+        result = self.audit(base, candidate)
+        self.assertEqual(result["status"], "CLEAN")
+        self.assertEqual(result["dependency_changed"], ["CONFIG_CRYPTO_LZ4", "CONFIG_LZ4_COMPRESS"])
+        self.assertEqual(result["unrelated_changed"], [])
+
+    def test_lz4_changes_without_hibernation_stay_unrelated(self):
+        base = BASE + "CONFIG_CRYPTO_LZ4=m\nCONFIG_LZ4_COMPRESS=m\n"
+        cand = BASE + "CONFIG_CRYPTO_LZ4=y\nCONFIG_LZ4_COMPRESS=y\n"
+        result = self.audit(base, cand)
+        self.assertEqual(result["status"], "UNRELATED_DRIFT")
+        self.assertEqual(result["unrelated_changed"], ["CONFIG_CRYPTO_LZ4", "CONFIG_LZ4_COMPRESS"])
+
+    def test_lz4_wrong_direction_stays_unrelated(self):
+        base = BASE + "CONFIG_CRYPTO_LZ4=m\nCONFIG_LZ4_COMPRESS=m\n"
+        candidate = (BASE.replace("# CONFIG_HIBERNATION is not set", "CONFIG_HIBERNATION=y")
+                     + "# CONFIG_CRYPTO_LZ4 is not set\n# CONFIG_LZ4_COMPRESS is not set\n")
+        self.assertEqual(self.audit(base, candidate)["status"], "UNRELATED_DRIFT")
+
+    def test_lz4_compress_without_crypto_selector_stays_unrelated(self):
+        base = BASE + "CONFIG_CRYPTO_LZ4=m\nCONFIG_LZ4_COMPRESS=m\n"
+        candidate = (BASE.replace("# CONFIG_HIBERNATION is not set", "CONFIG_HIBERNATION=y")
+                     + "CONFIG_CRYPTO_LZ4=m\nCONFIG_LZ4_COMPRESS=y\n")
+        self.assertEqual(self.audit(base, candidate)["status"], "UNRELATED_DRIFT")
+
     def test_no_change_is_clean_without_evidence(self):
         r = self.audit(BASE, BASE)
         self.assertEqual(r["status"], "CLEAN")

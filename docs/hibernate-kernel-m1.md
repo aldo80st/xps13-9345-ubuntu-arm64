@@ -68,3 +68,9 @@ El nuevo script [audit-hibernate-config.py](../scripts/audit-hibernate-config.py
 - `sudo apt install`, cambios en `/boot`, GRUB, BIOS, UEFI, Secure Boot, BitLocker, swap, dracut, rootfs operativo, encendido/apagado o hibernación.
 - No se compiló kernel ni se creó paquete .deb alternativo. La configuración **sí pasó Kconfig**, pero carece de equivalencia funcional de toolchain y de los parches necesarios. No es candidato booteable.
 - No se abrió ticket a Dell o Canonical, porque todavía falta una reproducción específica y/o verificar disposición upstream de los parches.
+
+## Avance M2 — 2026-11-07
+
+La cadena reproducible (Ubuntu 26.10 arm64 + GCC 15.3 + Rust 1.97.1 + LLVM 22 + Bindgen 0.72.1 + pahole 1.31) se verificó en Docker sobre el XPS, sin instalar herramientas en el host. La nueva prueba `olddefconfig` conserva todas las opciones externas a hibernación; dos selecciones LZ4 son explícitamente requeridas por el Kconfig. Resultado final `CLEAN`, 8 opciones directas + 2 dependencias + 0 inesperadas. Véase [M2](hibernate-m2-toolchain.md).
+
+**Aún no existe un kernel alternativo compilado ni probado**. La revisión de P2/P2a PCIe, SMP2P/remoteproc y los demás parches Qualcomm sigue impidiendo la instalación.

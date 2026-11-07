@@ -49,3 +49,14 @@ malformed and gives `UNKNOWN`. A symbol absent from one file differs from "is no
 La primera ejecución arrojó UNKNOWN porque el analizador no admitía minúsculas válidas (p. ej. CONFIG_MT76x02_LIB); se añadió una prueba que falló antes de corregirlo y luego pasó. El código se verificó con unittest, py_compile y diff check. **Este resultado bloquea una compilación destinada a arrancar**; la configuración de fuente de Ubuntu sigue sin equivalencia a su paquete oficial.
 
 La revisión de dependencias Qualcomm por un agente independiente en Paseo está documentada en [hibernate-patch-review-20261107.md](hibernate-patch-review-20261107.md).
+
+## Dependencias Kconfig admitidas en M2 (2026-11-07)
+
+El criterio original consideraba extraños todos los símbolos ajenos a los 8 esperados. La ejecución real demostró dos dependencias mecánicas y verificadas **del propio kernel Ubuntu 7.3**:
+
+- `CONFIG_HIBERNATION=y` selecciona `CONFIG_CRYPTO_LZ4=y` en `kernel/power/Kconfig`.
+- `CONFIG_CRYPTO_LZ4=y` selecciona `CONFIG_LZ4_COMPRESS=y` en `crypto/Kconfig`.
+
+El auditor informa estos símbolos por separado como `dependency_changed` y **solo** los admite cuando el baseline los declara módulos (`m`), el candidato los integra (`y`) y el baseline no tiene hibernación mientras el candidato sí. No se acepta una alteración de LZ4 sin esa relación. Otras diferencias continúan siendo `UNRELATED_DRIFT`.
+
+**Resultado real M2:** `CLEAN`; `expected_changed=8`, `dependency_changed=2`, `unrelated_changed=0`, `errors=0`. 66 pruebas de ambas herramientas pasaron. El resultado es un **equivalente funcional en Kconfig más hibernación**, no una compilación de kernel o una prueba de reanudación.

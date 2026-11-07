@@ -73,7 +73,8 @@ def audit(baseline: Path, candidate: Path) -> dict:
     cand, cerr = parse(Path(candidate))
     errors = [f"baseline: {e}" for e in berr] + [f"candidate: {e}" for e in cerr]
     result = {
-        "status": "UNKNOWN", "expected_changed": [], "unrelated_changed": [],
+        "status": "UNKNOWN", "expected_changed": [], "dependency_changed": [],
+        "unrelated_changed": [],
         "flags": {k: [] for k in _FLAGS}, "hibernation_evidence": False,
         "errors": errors, "notes": [],
     }
@@ -81,8 +82,27 @@ def audit(baseline: Path, candidate: Path) -> dict:
         return result
     changed = sorted(s for s in set(base) | set(cand) if base.get(s, "\0absent") != cand.get(s, "\0absent"))
     expected = [s for s in changed if s in EXPECTED]
-    unrelated = [s for s in changed if s not in EXPECTED]
+
+    # Ubuntu 7.3 kernel/power/Kconfig: HIBERNATION selects CRYPTO_LZ4,
+    # crypto/Kconfig: CRYPTO_LZ4 selects LZ4_COMPRESS. The baseline has both
+    # as modules; built-in hibernation promotes them to built-in. Restrict
+    # this exception to the exact m -> y transition and the selector chain.
+    hibernation_activated = (base.get("CONFIG_HIBERNATION") is None
+                            and cand.get("CONFIG_HIBERNATION") == "y")
+    lz4_selected = (hibernation_activated
+                    and base.get("CONFIG_CRYPTO_LZ4") == "m"
+                    and cand.get("CONFIG_CRYPTO_LZ4") == "y")
+    deps = []
+    if lz4_selected and "CONFIG_CRYPTO_LZ4" in changed:
+        deps.append("CONFIG_CRYPTO_LZ4")
+    if (lz4_selected and base.get("CONFIG_LZ4_COMPRESS") == "m"
+            and cand.get("CONFIG_LZ4_COMPRESS") == "y"
+            and "CONFIG_LZ4_COMPRESS" in changed):
+        deps.append("CONFIG_LZ4_COMPRESS")
+
+    unrelated = [s for s in changed if s not in EXPECTED and s not in deps]
     result["expected_changed"] = expected
+    result["dependency_changed"] = deps
     result["unrelated_changed"] = unrelated
     result["flags"] = _flags(unrelated)
     result["hibernation_evidence"] = bool(expected)
@@ -108,6 +128,7 @@ def main(argv=None) -> int:
     else:
         print(f"status: {result['status']}")
         print(f"expected hibernation symbols changed: {len(result['expected_changed'])}")
+        print(f"required LZ4 dependencies changed: {len(result['dependency_changed'])}")
         print(f"unrelated symbols changed: {len(result['unrelated_changed'])}")
         for key, names in result["flags"].items():
             if names:

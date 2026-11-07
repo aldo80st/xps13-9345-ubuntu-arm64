@@ -1,0 +1,56 @@
+# Kconfig-only toolchain image for Ubuntu 7.3.0-10.10 arm64 (M2). Not a kernel build image.
+# Build on the XPS (arm64):
+#   docker build -f container/Dockerfile.hibernate-kconfig -t xps-hibernate-kconfig:ubuntu26.10 container/
+# All apt activity happens inside the image; nothing is installed on the host.
+# Rust std sources (rust-src) come from the rust-<series>-src package; RUST_LIB_SRC must be /usr/src/rustc-<ver>/library.
+# `pahole` is the Ubuntu 26.10 package name (per reviewer). rustc-<series>, rust-<series>-src, bindgen and
+# clang-<N> names are expected but NOT verified from STOLAS02; if any is absent `apt-get install` fails and the
+# build stops (fail closed). Adjust RUST_PKG_SERIES/LLVM_VER via --build-arg only after checking apt-cache on the XPS.
+FROM ubuntu:26.10
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG RUST_VER=1.97.1
+ARG RUST_PKG_SERIES=1.97
+ARG LLVM_VER=22
+ARG BINDGEN_VER=0.72.1
+ARG PAHOLE_VER=1.31
+ARG GCC_VER=15.3
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates make bc bison flex m4 perl python3 \
+        gcc gcc-aarch64-linux-gnu binutils \
+        libssl-dev libelf-dev libncurses-dev \
+        rustc-${RUST_PKG_SERIES} rust-${RUST_PKG_SERIES}-src \
+        bindgen \
+        clang-${LLVM_VER} llvm-${LLVM_VER} libclang-${LLVM_VER}-dev lld-${LLVM_VER} \
+        pahole \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stable, version-independent entry points; the harness uses only these paths.
+RUN set -eu; \
+    ln -sf "$(ls -d /usr/lib/rust-${RUST_PKG_SERIES}/bin/rustc)" /usr/local/bin/rustc; \
+    ln -sf "/usr/lib/llvm-${LLVM_VER}/bin/clang" /usr/local/bin/clang; \
+    ln -sf "/usr/lib/llvm-${LLVM_VER}/bin/llvm-config" /usr/local/bin/llvm-config
+
+ENV RUST_LIB_SRC=/usr/src/rustc-${RUST_VER}/library \
+    LIBCLANG_PATH=/usr/lib/llvm-${LLVM_VER}/lib \
+    BINDGEN=/usr/bin/bindgen \
+    RUSTC=/usr/local/bin/rustc
+
+# Build-time provenance + version gate: any mismatch aborts the build.
+RUN set -eu; fail() { echo "provenance check FAILED: $*" >&2; exit 1; }; \
+    cat /etc/os-release | grep -q '^VERSION_ID="26.10"' || fail "not Ubuntu 26.10"; \
+    [ "$(dpkg --print-architecture)" = arm64 ] || fail "not arm64"; \
+    aarch64-linux-gnu-gcc --version | head -1 | grep -q "${GCC_VER}" || fail "aarch64-linux-gnu-gcc != ${GCC_VER}"; \
+    rustc --version | grep -q "^rustc ${RUST_VER} " || fail "rustc != ${RUST_VER}"; \
+    bindgen --version | grep -q "${BINDGEN_VER}" || fail "bindgen != ${BINDGEN_VER}"; \
+    clang --version | grep -q "version ${LLVM_VER}\." || fail "clang != ${LLVM_VER}"; \
+    pahole --version | grep -q "${PAHOLE_VER}" || fail "pahole != ${PAHOLE_VER}"; \
+    [ -d "${RUST_LIB_SRC}/core" ] || fail "RUST_LIB_SRC ${RUST_LIB_SRC} missing"; \
+    ls "${LIBCLANG_PATH}"/libclang*.so* >/dev/null || fail "libclang missing"; \
+    bison --version | head -1; flex --version; m4 --version | head -1; \
+    dpkg-query -W -f='${Package}=${Version}\n' > /etc/hibernate-kconfig-packages.txt
+
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin kconfig
+USER 10001
+WORKDIR /tmp
