@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "evidence_date": "2026-11-07",
+  "scope": "offline_review_only",
+  "components": [
+    {
+      "id": "pdc_restore",
+      "title": "PDC IRQ restore v1",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://patchew.org/linux/20261026-b4-irqchip-qcom-pdc-restore-resume-v1-1-ed6cc37816b0@oss.qualcomm.com/",
+        "https://lists.openwall.net/linux-kernel/2026/10/26/2170"
+      ],
+      "access": "indexed_primary",
+      "notes": "Proposal verified through matching Message-ID mirror; Patchew fetch failed. Glymur CRD report is not Dell evidence. Exact-base syscore ordering, X1E quirk and IRQ state restoration remain unresolved."
+    },
+    {
+      "id": "clock_restore",
+      "title": "Clock restore RFC v1 series",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/28/856",
+        "https://lists.openwall.net/linux-kernel/2026/10/28/861",
+        "https://lists.openwall.net/linux-kernel/2026/10/28/880",
+        "https://lists.openwall.net/linux-kernel/2026/10/28/882"
+      ],
+      "access": "indexed_primary",
+      "notes": "Cover and RFC 1/3, 2/3 verified; 3/3 Glymur dispcc wiring identified by cover/day index but direct fetch failed. Architecture choice remains RFC; no Dell provider coverage or package equivalence established."
+    },
+    {
+      "id": "pcie_freeze",
+      "title": "PCIe freeze v2",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/12/1513"
+      ],
+      "access": "live_primary",
+      "notes": "Targets shutdown v6; v7 reconciliation and Dell NVMe/Wi-Fi restore remain blocked. Reuse upstream successor after semantic review."
+    },
+    {
+      "id": "pcie_shutdown",
+      "title": "PCIe shutdown v7",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/29/328"
+      ],
+      "access": "live_primary",
+      "notes": "Rebase is not hibernation qualification. Existing reconciliation records uninitialised pointer/build review, MSI lifetime and suspended shutdown concerns."
+    },
+    {
+      "id": "smp2p_restore",
+      "title": "SMP2P restore proposal",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/09/2521"
+      ],
+      "access": "live_primary",
+      "notes": "Negotiation reset alone does not repair PAS lifecycle; manual Lenovo stop/start is not Dell qualification."
+    },
+    {
+      "id": "remoteproc_lifecycle",
+      "title": "PAS remoteproc lifecycle",
+      "publication": "unknown",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/09/2521"
+      ],
+      "access": "live_primary",
+      "notes": "Author leaves running-at-image remote recovery unresolved; no verified upstream lifecycle solution identified. Preserve existing locked lifecycle contract."
+    },
+    {
+      "id": "uart_restore",
+      "title": "GENI UART restore v2",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/27/2926",
+        "https://lkml.iu.edu/hypermail/linux/kernel/2610.3/07785.html"
+      ],
+      "access": "indexed_primary",
+      "notes": "Mirror verifies v2; direct Openwall fetch failed. Non-console setup reset; Dell console/BT mapping and combined restore unknown."
+    },
+    {
+      "id": "bluetooth_ibs",
+      "title": "QCA Bluetooth IBS reset v2",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "defer",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/14/2305",
+        "https://lkml.iu.edu/hypermail/linux/kernel/2610.1/16019.html"
+      ],
+      "access": "live_primary",
+      "notes": "IU primary-author mirror fetched after Openwall timeout. v2 publication verified; Lenovo hibernation used v1, OnePlus power cycling used v2. No acceptance, mainline ancestry or Dell restore proof."
+    },
+    {
+      "id": "pinctrl_restore",
+      "title": "Qualcomm TLMM restore v4",
+      "publication": "proposed",
+      "accepted": "accepted",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "reuse_after_review",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lists.openwall.net/linux-kernel/2026/10/21/2649",
+        "https://lists.openwall.net/linux-kernel/2026/10/28/768"
+      ],
+      "access": "live_primary",
+      "notes": "Explicit maintainer application verified; tree application is not mainline ancestry. Dell pin ownership and exact package equivalence unresolved."
+    },
+    {
+      "id": "dell_ec",
+      "title": "Dell EC v8 binding/driver/DTS",
+      "publication": "proposed",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "reuse_after_review",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://lkml.iu.edu/hypermail/linux/kernel/2610.3/01866.html"
+      ],
+      "access": "indexed_primary",
+      "notes": "Reuse existing v8 artifacts and M3 checks; thermal reporting, ADC dependency, SCMI and PM ordering remain required. Local object build is not upstream or package inclusion."
+    },
+    {
+      "id": "ubuntu_concept",
+      "title": "Canonical Ubuntu Concept packaging",
+      "publication": "not_applicable",
+      "accepted": "unknown",
+      "mainline": "unknown",
+      "ubuntu_inclusion": "unknown",
+      "commit": null,
+      "decision": "reuse_packaging",
+      "dell_restore": "unknown",
+      "sources": [
+        "https://discourse.ubuntu.com/t/how-to-build-your-own-ubuntu-concept-x-elite-kernel/49941",
+        "https://discourse.ubuntu.com/t/faq-ubuntu-25-04-25-10-on-snapdragon-x-elite/61016",
+        "https://ppa.launchpad.net/ubuntu-concept/x1e/ubuntu/pool/main/l/linux-qcom-x1e/"
+      ],
+      "access": "live_primary",
+      "notes": "Reuse Canonical source/config/toolchain/package workflow. Package availability does not prove restore fixes or enabled hibernation; exact 7.3.0-31 patch inventory unknown."
+    }
+  ],
+  "ppa": {
+    "package": "linux-qcom-x1e",
+    "version": "7.3.0-31",
+    "machine": "Dell XPS 13 9345",
+    "hibernation": "disabled",
+    "config_line": "# CONFIG_HIBERNATION is not set",
+    "provenance": "user_reported_xps_verified",
+    "notes": "Supplied by user for this review; not measured on STOLAS02. Distinct from Ubuntu source 7.3.0-10.10 audited previously."
+  },
+  "gates": {
+    "pdc_restore": "unresolved",
+    "clock_restore": "unresolved",
+    "ppa_hibernation": "disabled",
+    "pcie_reconciliation": "unresolved",
+    "remoteproc_lifecycle": "unresolved",
+    "dell_validation": "unverified"
+  }
+}
