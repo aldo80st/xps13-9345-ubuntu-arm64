@@ -48,6 +48,8 @@ Current result with staged series: failures **none**; unmet: version mismatch (Ã
 python3 -I scripts/hibernate-pcie-h1-stack.py stage --out .local/h1-pcie/stack
 python3 -I scripts/hibernate-pcie-h1-stack.py check --series-dir .local/h1-pcie/stack
 ```
+Applicability harness and exact Ubuntu 7.3 preimage findings: [hibernate-pcie-h1-applicability.md](hibernate-pcie-h1-applicability.md).
+
 ## Blockers / unknowns
 No Ubuntu 7.3 source scanned; ancestry of the three bases unknown; whether P2 applies with `git am` on v7 is **untested** (no tree); mainline/stable inclusion unknown; no Dell testing. Authorized next step: scan `linux-source-7.3.0-10.10` on a capable host with `--source-root`, then a reviewed P2 rebase onto v7 (with the S7-3 uninitialised-pointer fix) and Dell hardware validation.
 
