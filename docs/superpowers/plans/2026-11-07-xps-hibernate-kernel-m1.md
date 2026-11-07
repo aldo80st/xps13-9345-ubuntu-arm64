@@ -37,7 +37,7 @@
 - [x] Step 1: verificar kernel, Kconfig, candidatos apt y toolchain local con comandos de sólo lectura.
 - [x] Step 2: rastrear evidencia upstream y distinguir accepted vs merged vs packaged.
 - [x] Step 3: redactar tabla de variantes y decisión técnica; validar presencia de links, cinco subsistemas y etiquetas de incertidumbre.
-- [ ] Step 4: commit docs(xps): inventory X1E hibernation kernel blockers.
+- [x] Step 4: commit docs(xps): inventory X1E hibernation kernel blockers (c838fa2).
 
 ### Task 2: Preparar fuente Ubuntu en entorno aislado
 
@@ -55,9 +55,9 @@
 
 **Files:** `docs/hibernate-kernel-m1.md`, plan y script de diagnóstico existente.
 
-- [ ] Step 1: correr suite de preflight y revisar matriz de parches; `git diff --check` sin errores.
+- [x] Step 1: correr suite de preflight y revisar matriz de parches; `git diff --check` sin errores (11/11 PASS).
 - [x] Step 2: dejar gate de fase M2 en NO-GO mientras PCIe + restore y recuperación BitLocker sigan sin validación.
-- [ ] Step 3: commit docs(xps): record isolated kernel source inspection and decision.
+- [x] Step 3: commit docs(xps): record isolated kernel source inspection and decision (c838fa2).
 
 ## Stop conditions
 
