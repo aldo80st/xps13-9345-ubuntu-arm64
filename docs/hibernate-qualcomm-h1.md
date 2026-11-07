@@ -37,3 +37,7 @@ Mainline ancestry of all groups; Ubuntu inclusion re-verification; P4/P5 live st
 
 ## Validator semantics
 `NO_GO` (exit 1): missing/duplicate/unexpected group, bad enum, non-HTTPS URL, bad SHA, ABI claim, secret-like content, `READY`, P2/P2a/P3 not BLOCKED, or the P2→P2a / P3→remoteproc dependencies dropped, unreadable manifest. `REVIEW_REQUIRED` (exit 0): structurally valid, with blockers listed. It cannot output GO.
+
+## Remoteproc lifecycle follow-up
+
+Issue #25 has a [source audit and locked NO_GO lifecycle gate](hibernate-remoteproc-h1.md). P3 remains BLOCKED; the standalone admission gate exits 1 even for a structurally valid blocked contract.
