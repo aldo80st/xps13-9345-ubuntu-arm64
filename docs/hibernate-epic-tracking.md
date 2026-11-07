@@ -22,3 +22,10 @@ Baseline merged PR #20 (Dell EC v8 + M1–M3): https://github.com/aldo80st/xps13
 - Integrador: confirma de forma independiente salidas de agentes, prueba suite completa, opera GitHub PRs, no configura sistema ni arranca kernel.
 - Estados H1/H2 deben actualizarse con evidencia de commit/PR y resultados concretos. **La creación de issues no significa que el milestone esté completo.**
 - No fusionar PR #14/#16 GPU/NPU, PR #18 LLM, PR #19 Hexagon ni trabajos de otro subsistema como prerrequisito de hibernación.
+
+## I0 — Integración upstream-first (2026-11-07)
+
+- [ADR-0001](adr/ADR-0001-upstream-first-xps-hibernation.md): Canonical base, Dell Tributo referencia y Qualcomm fuente de correcciones, Omarchy/NixOS comparativas.
+- [Registro Git fijado](hibernate-upstream-projects.lock.json): 4 referencias, URLs, ramas y SHA. Checker en `scripts/verify-hibernate-upstream-lock.py`; solo lectura, sin actualizaciones automáticas ni autorización de instalar.
+- [Runbook](hibernate-upstream-onboarding.md), [contrato](superpowers/specs/2026-11-07-upstream-projects-integration-design.md) y [plan](superpowers/plans/2026-11-07-upstream-projects-integration.md).
+- **I1 pendiente:** correspondencia exacta fuente Canonical → paquete 7.3.0-31.31 y revisión de annotations; el pin de Git NO demuestra identidad del paquete. I2 Dell y I3 Qualcomm pendientes.

@@ -28,6 +28,8 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [H1: migración upstream-first a Canonical qcom-x1e](docs/superpowers/plans/2026-11-07-upstream-first-hibernation-pivot.md)
 - [H1: auditoría real de kernel Canonical qcom-x1e](docs/hibernate-canonical-base.md)
 - [H1: matriz de reutilización upstream y dependencias PDC/clocks](docs/hibernate-upstream-reuse-matrix.md)
+- [ADR-0001: integración upstream-first del XPS 9345](docs/adr/ADR-0001-upstream-first-xps-hibernation.md)
+- [I0: proyectos upstream, commits fijados e inicio operativo](docs/hibernate-upstream-onboarding.md)
 - [H1 PCIe: reconciliación v2/v7 y puerta NO_GO](docs/hibernate-pcie-h1-v7-reconciliation.md)
 - [H1 PCIe: diagnóstico atómico de aplicación en fuentes Ubuntu](docs/hibernate-pcie-h1-applicability.md)
 - [H1 SMP2P/remoteproc: contrato de recuperación y bloqueos](docs/hibernate-remoteproc-h1.md)

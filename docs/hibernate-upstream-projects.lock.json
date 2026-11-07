@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "epic": "XPS-HIB-01",
+  "locked_at": "2026-11-07",
+  "source_policy": "upstream-first-no-automatic-upgrades",
+  "release_equivalence": "unverified",
+  "projects": [
+    {
+      "id": "ubuntu-concept-qcom-x1e",
+      "role": "build_base",
+      "remote": "https://git.launchpad.net/~ubuntu-concept/ubuntu/+source/linux/+git/resolute",
+      "ref": "refs/heads/resolute-x1e",
+      "commit": "ba0042b4d0be94e27274fc336655f21fa0146027",
+      "handling": "source_review_only",
+      "package_provenance": "linux-qcom-x1e 7.3.0-31.31 ARM64 buildinfo; exact source-to-binary identity not verified",
+      "license_status": "pending_review"
+    },
+    {
+      "id": "dell-xps-9345-tributo",
+      "role": "device_reference",
+      "remote": "https://github.com/alexVinarskis/linux-x1e80100-dell-tributo",
+      "ref": "refs/heads/master",
+      "commit": "2c5a57875dc4bc62e179a785e290a91bebfde2c6",
+      "handling": "delta_review_only",
+      "package_provenance": "not_applicable",
+      "license_status": "pending_review"
+    },
+    {
+      "id": "omarchy",
+      "role": "comparative_reference",
+      "remote": "https://github.com/omacom/omarchy",
+      "ref": "HEAD",
+      "commit": "9044b7e8ea55ed6f443c14cbf93a2504aa248825",
+      "handling": "evidence_only",
+      "package_provenance": "not_applicable",
+      "license_status": "not_importing"
+    },
+    {
+      "id": "x1e-nixos-config",
+      "role": "comparative_reference",
+      "remote": "https://github.com/kuruczgy/x1e-nixos-config",
+      "ref": "HEAD",
+      "commit": "0b46072347252f83d40439f4a95d9d1fa37d6cf8",
+      "handling": "evidence_only",
+      "package_provenance": "not_applicable",
+      "license_status": "not_importing"
+    }
+  ],
+  "required_gates": [
+    "canonical_exact_source_identity",
+    "dell_dt_ec_delta_review",
+    "upstream_pcie_restore",
+    "upstream_remoteproc_restore",
+    "upstream_pdc_restore",
+    "upstream_clock_restore",
+    "thermal_scmi_compatibility",
+    "backup_bitlocker_rollback"
+  ],
+  "launch_or_install_authorized": false
+}
