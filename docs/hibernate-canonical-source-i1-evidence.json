@@ -1,0 +1,43 @@
+{
+  "annotations": {
+    "ARM_SCMI_CPUFREQ": "m",
+    "HIBERNATION": "n",
+    "PCIE_QCOM": "y",
+    "QCOM_PDC": "y",
+    "QCOM_SMP2P": "m"
+  },
+  "binary_reproducibility_verified": false,
+  "blockers": [
+    "HIBERNATION_NOT_ENABLED",
+    "HARDWARE_RESTORE_UNVERIFIED",
+    "GIT_COMMIT_EQUIVALENCE_UNVERIFIED",
+    "DELL_EC_NOT_IN_SOURCE"
+  ],
+  "buildinfo_kconfig_matches_annotations": true,
+  "declared_tar_sha256": "41e6c1e13aa14a6c4bc66f8e8faa33d6364eb309fa8f8c726a1e0ebee84a4051",
+  "dell_ec_present": false,
+  "dsc_sha256": "db38bee3a6cb6dbaed0e7ac13c68ab1261e380bb2f9ce4e54caa299fdda6cc21",
+  "dsc_signature_verified": false,
+  "evidence_date": "2026-11-07",
+  "external_gpg_check": "GOODSIG and VALIDSIG with freshly downloaded public key; trust undefined",
+  "git_commit_equivalence_verified": false,
+  "git_release_tag_identified": false,
+  "install_authorized": false,
+  "selected_files_sha256": {
+    "annotations": "ffb1d389c00eada80961ccb8e40749b0c171354332fcfffedd8a99554b97c750",
+    "changelog": "828c4e4fed15f6fda310ad5af2213d080ba3e45eb19d90e775df7d0fbdffb21a",
+    "clocks": "fbb317aff7b28bd6119433fd806c09c8dc37f9991a29aa0e8fb41825fa231ffe",
+    "dell_dts": "0e4383a29cd66802c3cd2616ef72bd0307a2f8782fc25f3c09805ffc535067b7",
+    "pas": "36ec577c3976118f0c8150348903cf47d761d221fd595223bab861e7201e8eec",
+    "pcie": "e1144f7d95f75c1e24bbb4a541e2b764b86f6915b5baa53507ff73301d1ec856",
+    "pdc": "d7799d75d56e4e071225bcae600271a7de0b7249e226b1e4a5bf3d30c427ef87",
+    "smp2p": "af84f30d36a206cc7a0b95e39af686a78be88cf428ab9af8bfbc247d8209d13a"
+  },
+  "signer_fingerprint_observed": "9B693D7440802E8A6FF803DE13498F032CCFE9DA",
+  "source": "linux-qcom-x1e",
+  "source_dsc_url": "https://ppa.launchpadcontent.net/ubuntu-concept/x1e/ubuntu/pool/main/l/linux-qcom-x1e/linux-qcom-x1e_7.3.0-31.31.dsc",
+  "source_sha256_verified": true,
+  "source_tar_url": "https://ppa.launchpadcontent.net/ubuntu-concept/x1e/ubuntu/pool/main/l/linux-qcom-x1e/linux-qcom-x1e_7.3.0-31.31.tar.gz",
+  "status": "NO_GO",
+  "version": "7.3.0-31.31"
+}

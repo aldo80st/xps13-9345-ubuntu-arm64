@@ -27,6 +27,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [H1 Qualcomm: matriz y manifiesto de parches](docs/hibernate-qualcomm-h1.md)
 - [H1: migración upstream-first a Canonical qcom-x1e](docs/superpowers/plans/2026-11-07-upstream-first-hibernation-pivot.md)
 - [H1: auditoría real de kernel Canonical qcom-x1e](docs/hibernate-canonical-base.md)
+- [I1: paquete fuente exacto Canonical qcom-x1e 7.3.0-31.31](docs/hibernate-canonical-source-i1.md)
 - [H1: matriz de reutilización upstream y dependencias PDC/clocks](docs/hibernate-upstream-reuse-matrix.md)
 - [ADR-0001: integración upstream-first del XPS 9345](docs/adr/ADR-0001-upstream-first-xps-hibernation.md)
 - [I0: proyectos upstream, commits fijados e inicio operativo](docs/hibernate-upstream-onboarding.md)

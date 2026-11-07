@@ -29,3 +29,11 @@ Baseline merged PR #20 (Dell EC v8 + M1–M3): https://github.com/aldo80st/xps13
 - [Registro Git fijado](hibernate-upstream-projects.lock.json): 4 referencias, URLs, ramas y SHA. Checker en `scripts/verify-hibernate-upstream-lock.py`; solo lectura, sin actualizaciones automáticas ni autorización de instalar.
 - [Runbook](hibernate-upstream-onboarding.md), [contrato](superpowers/specs/2026-11-07-upstream-projects-integration-design.md) y [plan](superpowers/plans/2026-11-07-upstream-projects-integration.md).
 - **I1 pendiente:** correspondencia exacta fuente Canonical → paquete 7.3.0-31.31 y revisión de annotations; el pin de Git NO demuestra identidad del paquete. I2 Dell y I3 Qualcomm pendientes.
+
+## I1 — Auditoría de fuente Canonical PPA (2026-11-07)
+
+- [Fuente exacta y evidencia](hibernate-canonical-source-i1.md) y [manifest de 8 hashes](hibernate-canonical-source-i1-evidence.json); `.dsc` de 7.3.0-31.31 y tar.gz verificado por SHA oficial.
+- [Validador reproducible](../scripts/audit-canonical-source-i1.py) y [plan TDD](superpowers/plans/2026-11-07-canonical-source-i1.md): NO_GO aunque los hashes sean correctos porque CONFIG_HIBERNATION=n y faltan garantías de recuperación.
+- DTS Dell y cinco controladores revisados son byte-idénticos a la fuente Ubuntu generic 7.3.0 en los seis archivos comparados. EC v8 no está incluido en fuente PPA.
+- Firma del archivo fuente validada criptográficamente con clave pública del firmante, pero GPG `TRUST_UNDEFINED`; origen de commit Git↔tar de release no demostrado.
+- **Siguiente gate #44**: auditar restauración PDC, clocks, PCIe, SMP2P/remoteproc sobre este archivo exacto, sin instalar kernel; I2 DTS/EC y H2 build offline aún pendientes.
