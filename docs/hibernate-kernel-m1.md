@@ -73,4 +73,4 @@ El nuevo script [audit-hibernate-config.py](../scripts/audit-hibernate-config.py
 
 La cadena reproducible (Ubuntu 26.10 arm64 + GCC 15.3 + Rust 1.97.1 + LLVM 22 + Bindgen 0.72.1 + pahole 1.31) se verificó en Docker sobre el XPS, sin instalar herramientas en el host. La nueva prueba `olddefconfig` conserva todas las opciones externas a hibernación; dos selecciones LZ4 son explícitamente requeridas por el Kconfig. Resultado final `CLEAN`, 8 opciones directas + 2 dependencias + 0 inesperadas. Véase [M2](hibernate-m2-toolchain.md).
 
-**Aún no existe un kernel alternativo compilado ni probado**. La revisión de P2/P2a PCIe, SMP2P/remoteproc y los demás parches Qualcomm sigue impidiendo la instalación.
+**Aún no existe un kernel alternativo compilado ni probado**. La revisión de P2/P2a PCIe, SMP2P/remoteproc y los demás parches Qualcomm sigue impidiendo la instalación. Además, el [gate de compatibilidad M3 EC v8/SCMI](hibernate-thermal-m3.md) exige incorporar controlador, binding y DTS Dell actualmente ausentes de las fuentes Ubuntu.

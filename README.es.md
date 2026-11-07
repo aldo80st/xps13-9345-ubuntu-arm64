@@ -20,6 +20,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Hibernación: auditoría M1 de kernel y parches](docs/hibernate-kernel-m1.md)
 - [Hibernación: auditoría automatizada de configuración](docs/hibernate-config-audit.md)
 - [M2: Toolchain ARM64 reproducible y validación de Kconfig](docs/hibernate-m2-toolchain.md)
+- [M3: Matriz de compatibilidad hibernación, Dell EC y SCMI](docs/hibernate-thermal-m3.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 
 ## Política de pruebas

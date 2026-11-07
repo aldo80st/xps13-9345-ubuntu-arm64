@@ -31,6 +31,10 @@ Este comando lee el sistema y devuelve sólo campos normalizados sin datos priva
 
 La auditoría del candidato y las dependencias X1E80100 está en [M1: fuente Ubuntu y parches](hibernate-kernel-m1.md). Se descargó y extrajo el paquete fuente 7.3.0-10.10 en laboratorio ignorado por Git. La configuración con CONFIG_HIBERNATION=y **pasó `make olddefconfig`** con herramientas aisladas, pero muestra diferencias de Rust/pahole y faltan correcciones de restauración de hardware. **NO-GO para compilar con intención de arranque o instalar.**
 
+## Dependencia transversal obligatoria: control térmico y relojes del procesador
+
+Antes de construir un kernel de hibernación para arrancar en el Dell XPS 13 9345, ejecutar [M3: matriz EC v8 + SCMI](hibernate-thermal-m3.md) y su validador `scripts/hibernate-thermal-m3-gate.py`. La configuración M2 preserva los símbolos SCMI, pero las fuentes Ubuntu aún carecen del EC v8 y del Device Tree experimental que está usando el equipo; el resultado actual es **NO_GO**. Incluso `REVIEW_REQUIRED` exige revisión del hardware y no autoriza instalar nada. No fusionar las ramas térmicas ni reutilizar un módulo .ko compilado para el kernel anterior.
+
 ## Orden correcto, con dependencias explícitas
 
 ### Gate 0 — protección y reversión (previo a cualquier prueba de arranque)
