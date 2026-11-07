@@ -26,6 +26,7 @@ class LifecycleGateTests(unittest.TestCase):
         r = self.run_gate()
         self.assertEqual(r['errors'], [])
         self.assertEqual(len(r['blockers']), 6)
+        self.assertEqual(set(r), {'verdict', 'admitted', 'errors', 'blockers'})
 
     def test_missing_input_denies(self):
         self.assertTrue(self.run_gate(ROOT / 'absent-contract.json')['errors'])
