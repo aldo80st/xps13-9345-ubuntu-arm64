@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "evidence_date": "2026-11-07",
+  "status": "blocked",
+  "selected_series": "shutdown v7",
+  "note": "Fail-closed. Patch texts are staged only under ignored .local/; nothing here is applied, built, installed or integrated. sha256 values are of the staged text files written by `scripts/hibernate-pcie-h1-stack.py stage`.",
+  "patches": [
+    {
+      "id": "S7-1",
+      "title": "PCI: host-common: Fix early bus-walk exit in d3cold_possible()",
+      "file": "s7-1.patch",
+      "version": "v7",
+      "url": "https://lore.kernel.org/all/20261029-shutdown-v7-1-3fd7a76a6991@oss.qualcomm.com/",
+      "message_id": "20261029-shutdown-v7-1-3fd7a76a6991@oss.qualcomm.com",
+      "date": "2026-10-29",
+      "base_commit": "17bb0e2f6c8043f70a693a5f3797471cbed354c8",
+      "requires": [],
+      "sha256": "1f00fbe04c4b423161318482d35bc01bd204a841fa8c2f77b6707586b8dc15b9"
+    },
+    {
+      "id": "S7-2",
+      "title": "PCI: dwc: Force L2 link entry on shutdown/reboot without D3cold check",
+      "file": "s7-2.patch",
+      "version": "v7",
+      "url": "https://lore.kernel.org/all/20261029-shutdown-v7-2-3fd7a76a6991@oss.qualcomm.com/",
+      "message_id": "20261029-shutdown-v7-2-3fd7a76a6991@oss.qualcomm.com",
+      "date": "2026-10-29",
+      "base_commit": "17bb0e2f6c8043f70a693a5f3797471cbed354c8",
+      "requires": [
+        "S7-1"
+      ],
+      "sha256": "4e9338fdae522ec9ed1e3b3c74df12a67fe531bf51f6b286eca994684356b48d"
+    },
+    {
+      "id": "S7-3",
+      "title": "PCI: qcom: Implement shutdown() callback",
+      "file": "s7-3.patch",
+      "version": "v7",
+      "url": "https://lore.kernel.org/all/20261029-shutdown-v7-3-3fd7a76a6991@oss.qualcomm.com/",
+      "message_id": "20261029-shutdown-v7-3-3fd7a76a6991@oss.qualcomm.com",
+      "date": "2026-10-29",
+      "base_commit": "17bb0e2f6c8043f70a693a5f3797471cbed354c8",
+      "requires": [
+        "S7-2"
+      ],
+      "sha256": "a3fc237bd24f6300a5c72cb064a1255a7af7de8df66900692f03854f99acc830"
+    },
+    {
+      "id": "P2",
+      "title": "PCI: qcom: Power the controller down when hibernating (v2)",
+      "file": "p2-v2.patch",
+      "version": "v2",
+      "url": "https://lore.kernel.org/all/179181074907.22199.10556821368232442334@pm.me/",
+      "message_id": "179181074907.22199.10556821368232442334@pm.me",
+      "date": "2026-10-12",
+      "base_commit": "591d89f23a7cbc668579521513c7f53b0968754c",
+      "built_against_version": "v6",
+      "requires": [
+        "S7-2",
+        "S7-3"
+      ],
+      "sha256": "0009a57696ef321e48d289afc41dece404ca82f529975ba3c8327c76039e447d"
+    }
+  ],
+  "expected_force_callsites": {
+    "drivers/pci/controller/dwc/pci-imx6.c": "false",
+    "drivers/pci/controller/dwc/pci-layerscape.c": "false",
+    "drivers/pci/controller/dwc/pcie-eswin.c": "false",
+    "drivers/pci/controller/dwc/pcie-nxp-s32g.c": "false",
+    "drivers/pci/controller/dwc/pcie-qcom.c": "false",
+    "drivers/pci/controller/dwc/pcie-rcar-gen4.c": "false",
+    "drivers/pci/controller/dwc/pcie-stm32.c": "false",
+    "drivers/pci/controller/dwc/pcie-ultrarisc.c": "false"
+  },
+  "reconciliation": {
+    "status": "unresolved",
+    "evidence": null,
+    "facts": "P2 v2 states it applies on top of shutdown v6 (base 12f8e3e3eef4) and was tested on v7.2 + v6; it was never posted against v7 (base 17bb0e2f6c80). Its own base is 591d89f23a7c with 3 prerequisite patch-ids. Textual agreement of its pre-image line with v7 patch 2 is checked, runtime correctness is not."
+  },
+  "known_defects": [
+    {
+      "id": "v7-3-uninitialized-pcie",
+      "resolved": false,
+      "source": "kernel test robot 2026-10-30; Mani 2026-11-05 'fix the build issue'",
+      "detail": "qcom_pcie_shutdown() reads uninitialized 'pcie' on firmware_managed controllers"
+    },
+    {
+      "id": "v7-3-msi-domain-freed-early",
+      "resolved": false,
+      "source": "Sashiko review 2026-10-29",
+      "detail": "dw_pcie_free_msi() removes the MSI domain while child MSI mappings may be active"
+    },
+    {
+      "id": "v7-3-shutdown-while-suspended",
+      "resolved": false,
+      "source": "Sashiko review 2026-10-29",
+      "detail": "no check of pci->suspended before DBI access"
+    },
+    {
+      "id": "p2-wifi-l2-timeout-d0",
+      "resolved": false,
+      "source": "P2 v2 post, 'Things to know'",
+      "detail": "with ath12k unloaded the card is in D0 at freeze and the L2 wait times out on pcie4 (LTSSM 0x11); outcome with ath12k loaded untested"
+    },
+    {
+      "id": "p2-tested-with-unposted-patches",
+      "resolved": false,
+      "source": "P2 v2 post",
+      "detail": "proposer kernel also carried smp2p, a newer pinctrl change, an unposted GENI change, and a backport omitting 2 global-IRQ lines"
+    }
+  ],
+  "dell_evidence": null
+}
