@@ -1,0 +1,3 @@
+# Imported upstream EC v8 patch emails: preserve byte-exact SHA256 provenance.
+# Diff hunk context and email trailers retain their original whitespace.
+patches/dell-ec-v8/*.diff -whitespace
