@@ -62,7 +62,8 @@ def _noruntime_configured(raw: str | None) -> bool | None:
 
 def inspect(root: Path, kernel: str) -> dict:
     """Inspect a host or filesystem fixture without executing any commands."""
-    config = _read(root, f"boot/config-{kernel}")
+    valid_kernel = bool(re.fullmatch(r"[A-Za-z0-9.+_~-]{1,100}", kernel))
+    config = _read(root, f"boot/config-{kernel}") if valid_kernel else None
     states = _read(root, "sys/power/state")
     cmdline = _read(root, "proc/cmdline")
     grub = _read(root, "etc/default/grub.d/ubuntu-x1e-settings.cfg")
@@ -71,10 +72,10 @@ def inspect(root: Path, kernel: str) -> dict:
     bios_value = bios.strip() if bios else None
 
     return {
-        "kernel": kernel if re.fullmatch(r"[A-Za-z0-9.+_~-]{1,100}", kernel) else "unreported",
+        "kernel": kernel if valid_kernel else "unreported",
         "kernel_hibernation": _config_flag(config, "CONFIG_HIBERNATION"),
         "arch_hibernation_possible": _config_flag(config, "CONFIG_ARCH_HIBERNATION_POSSIBLE"),
-        "disk_state": ("disk" in states.split()) if states is not None else None,
+        "disk_state": ("disk" in states.split()) if states and states.strip() else None,
         "mem_kib": _memory_kib(_read(root, "proc/meminfo")),
         "swap_kib": _swap_total_kib(_read(root, "proc/swaps")),
         "efi_noruntime_active": ("efi=noruntime" in cmdline.split()) if cmdline is not None else None,

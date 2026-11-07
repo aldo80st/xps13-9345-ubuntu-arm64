@@ -82,6 +82,19 @@ class HibernatePreflightTests(unittest.TestCase):
         for forbidden in ("SENSITIVE-", "secret-user", "very-private-swap", "passport", "UUID="):
             self.assertNotIn(forbidden, raw)
 
+    def test_empty_power_state_is_unknown_not_hard_block(self):
+        self.write("sys/power/state", "")
+        self.assertEqual(self.result()["status"], "UNKNOWN")
+
+    def test_invalid_kernel_name_is_rejected_before_path_resolution(self):
+        (self.root / "boot/config-test").unlink()
+        (self.root / "boot/config-test").mkdir()
+        self.write("proc/cmdline", "CONFIG_HIBERNATION=y\n")
+        value = module.inspect(self.root, "test/../../proc/cmdline")
+        self.assertEqual(value["kernel"], "unreported")
+        self.assertIsNone(value["kernel_hibernation"])
+
+
     def test_swap_header_only_is_zero_not_unknown(self):
         self.write("proc/swaps", "Filename Type Size Used Priority\n")
         res = self.result()
