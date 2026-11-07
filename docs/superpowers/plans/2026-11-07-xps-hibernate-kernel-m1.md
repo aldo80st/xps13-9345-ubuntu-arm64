@@ -48,7 +48,7 @@
 - [x] Step 1: `apt download linux-source-7.3.0` para versión 7.3.0-10.10, sin install.
 - [x] Step 2: comprobar versión con `dpkg-deb -f`, checksum SHA256 y `dpkg-deb -x` dentro de .local.
 - [x] Step 3: extraer sólo fuente para examen, sin scripts de instalación. Identificar Kconfig y comparar configuración Ubuntu.
-- [ ] Step 4: generar `.config` en directorio temporal aislado con HIBERNATION=y; `make olddefconfig` **intentado y bloqueado por ausencia de flex**. No considerar validado.
+- [x] Step 4: generar `.config` aislado y validar `make olddefconfig` (PASS con flex/bison/m4 extraídos sin instalación). **Advertencia:** 68 líneas de opciones difieren de config Ubuntu por toolchain, no apto para build final.
 - [x] Step 5: documentar limitaciones/resultado y dejar fuente reutilizable; nunca concluir booteabilidad.
 
 ### Task 3: Gate y verificación

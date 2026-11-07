@@ -29,7 +29,7 @@ Este comando lee el sistema y devuelve sólo campos normalizados sin datos priva
 
 ## Actualización M1 — 2026-11-07
 
-La auditoría del candidato de kernel y de dependencias X1E80100 se encuentra en [M1: fuente Ubuntu y parches](hibernate-kernel-m1.md). Se descargó y extrajo sólo el paquete de fuentes 7.3.0-10.10 en un directorio de laboratorio ignorado por Git. La validación de Kconfig con CONFIG_HIBERNATION=y quedó detenida por ausencia de `flex`; los parches de restauración del hardware están incompletos. **NO-GO para instalar un kernel de hibernación todavía.**
+La auditoría del candidato y las dependencias X1E80100 está en [M1: fuente Ubuntu y parches](hibernate-kernel-m1.md). Se descargó y extrajo el paquete fuente 7.3.0-10.10 en laboratorio ignorado por Git. La configuración con CONFIG_HIBERNATION=y **pasó `make olddefconfig`** con herramientas aisladas, pero muestra diferencias de Rust/pahole y faltan correcciones de restauración de hardware. **NO-GO para compilar con intención de arranque o instalar.**
 
 ## Orden correcto, con dependencias explícitas
 

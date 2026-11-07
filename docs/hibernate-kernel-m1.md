@@ -21,7 +21,8 @@ La **base de trabajo seleccionada** es el código fuente oficial de Ubuntu `linu
 | Metadatos | Package linux-source-7.3.0, Version 7.3.0-10.10; tar.bz2 de ~201.7 MB |
 | Ubicación | `.local/kernel-source/` (ignorado por Git), árbol fuente descomprimido de ~1.8 GB |
 | Kconfig de laboratorio | `.local/kernel-source/candidate-config/.config`: CONFIG_HIBERNATION=y, ARCH_HIBERNATION_POSSIBLE=y, SWAP=y |
-| `make olddefconfig` | **FALLÓ**: `flex: not found`; `bison` también falta; cambios limitados al directorio aislado |
+| `make olddefconfig` | **PASS** con `flex 2.6.4`, `bison 3.8.2`, `m4 1.4.21` extraídos en `.local/kernel-source/isolated-toolchain/`, sin instalar paquetes |
+| Diferencia con config de distribución | 68 líneas de opciones modificadas (incluye Rust, pahole y metadatos del compilador), además de habilitar hibernación: **no es todavía una configuración fiel** |
 | Compilación kernel / instalación / GRUB | **NO iniciadas** |
 
 El SHA256 queda registrado como huella reproducible de los bytes descargados. No se obtuvo un digest independiente de los índices apt-cache en esta inspección; no equiparar huella calculada con validación independiente de firma.
@@ -54,12 +55,12 @@ El SHA256 queda registrado como huella reproducible de los bytes descargados. No
 
 1. Comprobar estado actual de integración upstream P1–P5 y encontrar versión de P2 adaptada explícitamente a P2a v7. **No asumir** compatibilidad de v2+v7.
 2. Elegir kernel experimental ARM64 con mismo soporte Dell; preservar árbol original y definir manifest de commits SHA completos y hashes de parches.
-3. Con autorización de cambios de dependencias locales, instalar herramientas de compilación necesarias o usar contenedor de build aislado que ya las tenga; revalidar `make olddefconfig` y exigir `CONFIG_HIBERNATION=y` y CONFIG_HIBERNATE_CALLBACKS=y sin regresión de configuración.
+3. Resolver equivalencia de toolchain Ubuntu para no perder las opciones Rust/BPF y de depuración. `make olddefconfig` ya acepta `CONFIG_HIBERNATION=y` y `CONFIG_HIBERNATE_CALLBACKS=y` con herramientas sólo en `.local`, pero genera diferencias no atribuibles a hibernación. No compilar ni instalar hasta preservar las opciones relevantes del kernel original.
 4. Compilar **sin instalar** y verificar ABI, módulos, firmas y DT Dell, comparando Bluetooth/NVMe/USB4/Adreno/DisplayLink/Wi-Fi frente a kernel actual.
 5. Gate humano de recuperación de BitLocker, backup fiable y opción de regreso a GRUB antes de instalar un kernel alternativo para ensayos. Requiere autorización específica; se evita depender de la NAS degradada como único respaldo.
 
 ## No se hizo
 
 - `sudo apt install`, cambios en `/boot`, GRUB, BIOS, UEFI, Secure Boot, BitLocker, swap, dracut, rootfs operativo, encendido/apagado o hibernación.
-- No se compiló kernel ni se creó paquete .deb alternativo. La configuración quedó **preparada, pero no validada por Kconfig**.
+- No se compiló kernel ni se creó paquete .deb alternativo. La configuración **sí pasó Kconfig**, pero carece de equivalencia funcional de toolchain y de los parches necesarios. No es candidato booteable.
 - No se abrió ticket a Dell o Canonical, porque todavía falta una reproducción específica y/o verificar disposición upstream de los parches.
