@@ -27,6 +27,10 @@ Este comando lee el sistema y devuelve sólo campos normalizados sin datos priva
 
 **BLOCKED**: el kernel no anuncia hibernación o no hay swap. **UNKNOWN**: faltan observaciones críticas. **READY_FOR_EVALUATION**: los prerrequisitos visibles permiten estudiar un ensayo; no demuestra que la sesión pueda restaurarse. El swap por debajo de RAM es advertencia conservadora, no prueba absoluta de imposibilidad: la imagen hibernada puede ser menor.
 
+## Actualización M1 — 2026-11-07
+
+La auditoría del candidato de kernel y de dependencias X1E80100 se encuentra en [M1: fuente Ubuntu y parches](hibernate-kernel-m1.md). Se descargó y extrajo sólo el paquete de fuentes 7.3.0-10.10 en un directorio de laboratorio ignorado por Git. La validación de Kconfig con CONFIG_HIBERNATION=y quedó detenida por ausencia de `flex`; los parches de restauración del hardware están incompletos. **NO-GO para instalar un kernel de hibernación todavía.**
+
 ## Orden correcto, con dependencias explícitas
 
 ### Gate 0 — protección y reversión (previo a cualquier prueba de arranque)
