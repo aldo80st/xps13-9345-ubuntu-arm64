@@ -62,3 +62,12 @@
 ## Stop conditions
 
 Bloquear instalación/flasheo, cambios boot, pruebas de energía y archivos de swap. La meta de M1 es **candidato de laboratorio con trazabilidad**; su funcionalidad real en Dell no puede verificarse sin etapas posteriores autorizadas.
+
+## Iteración delegada Paseo + Claude Code (2026-11-07)
+
+- Paseo 0.15.2 en STOLAS02: proveedor Claude Code 2.1.318 se detectó, pero **falló por OAuth expirado** (sin ejecución); no se copiaron credenciales.
+- Claude Code en XPS sí estaba autenticado y creó audit script/test/doc, pero su modo acceptEdits no pudo ejecutar Python ni leer /boot. No registró validación ni commit; se asumió la verificación directamente desde el XPS.
+- Se añadió una regresión observada RED → GREEN: los símbolos Kconfig admiten minúsculas, p. ej. CONFIG_MT76x02_LIB. El analizador originalmente devolvía UNKNOWN para el kernel real.
+- Verificación directa en XPS: **27/27 unittest PASS**, py_compile PASS, auditoría real **UNRELATED_DRIFT** (exit 1 esperado): 8 símbolos de hibernación, 50 ajenos, 0 errores de parseo; clasificación rust 26, bpf 6, pahole 2, compiler 1 (categorías parciales).
+- Paseo en STOLAS02 ejecutó revisión de parches P1–P5 con Codex y creó docs/hibernate-patch-review-20261107.md (commit aislado STOLAS02 fbc4685ff059d7733ea013b16bd4f7d372041cc3). Se revisó y trasladó el informe al worktree XPS; el modelo no puede validar inclusión mainline/Ubuntu sin comprobar la ascendencia.
+- NO-GO mantiene vigencia: resolver equivalencia de toolchain y serie PCIe v7 ↔ parche hibernación v2; validar remoteproc y firmware Dell; no instalar kernel ni cambiar boot/swap/EFI.

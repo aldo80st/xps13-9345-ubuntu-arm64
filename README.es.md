@@ -18,6 +18,8 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Diagnóstico seguro](scripts/diagnose-readonly.sh)
 - [Hibernación ARM64: diagnóstico y plan seguro](docs/hibernation-arm64.md)
 - [Hibernación: auditoría M1 de kernel y parches](docs/hibernate-kernel-m1.md)
+- [Hibernación: auditoría automatizada de configuración](docs/hibernate-config-audit.md)
+- [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 
 ## Política de pruebas
 Cada solución deberá documentar versiones, síntomas, causa, referencias upstream, método, evidencia posterior y cómo deshacerla. Ninguna prueba puede desactivar Secure Boot, copiar certificados privados a GitHub ni realizar cambios irreversibles sin decisión explícita.

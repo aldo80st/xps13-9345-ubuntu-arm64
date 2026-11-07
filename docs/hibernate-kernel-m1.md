@@ -51,6 +51,10 @@ El SHA256 queda registrado como huella reproducible de los bytes descargados. No
 - P5 v2: https://lists.openwall.net/linux-kernel/2026/10/14/2305
 - Kernel oficial: repositorio Ubuntu 26.10 `linux-source-7.3.0`.
 
+## Auditoría de diferencias verificada en XPS (2026-11-07)
+
+El nuevo script [audit-hibernate-config.py](../scripts/audit-hibernate-config.py) comparó las configuraciones reales y reportó **UNRELATED_DRIFT**: 8 símbolos de hibernación frente a 50 símbolos ajenos (27 pruebas automatizadas OK). Las 68 líneas de diferencias textuales de M1 no eran 68 símbolos únicos. La revisión externa de P1–P5 mediante Paseo quedó en [hibernate-patch-review-20261107.md](hibernate-patch-review-20261107.md); mantiene el **NO-GO** para un kernel arrancable.
+
 ## Secuencia correcta de próxima iteración
 
 1. Comprobar estado actual de integración upstream P1–P5 y encontrar versión de P2 adaptada explícitamente a P2a v7. **No asumir** compatibilidad de v2+v7.
