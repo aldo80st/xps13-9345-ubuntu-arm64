@@ -21,6 +21,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Hibernación: auditoría automatizada de configuración](docs/hibernate-config-audit.md)
 - [M2: Toolchain ARM64 reproducible y validación de Kconfig](docs/hibernate-m2-toolchain.md)
 - [M3: Matriz de compatibilidad hibernación, Dell EC y SCMI](docs/hibernate-thermal-m3.md)
+- [Reproducción del controlador térmico Dell EC v8 en laboratorio](docs/thermal-hibernation-integration.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 
 ## Política de pruebas

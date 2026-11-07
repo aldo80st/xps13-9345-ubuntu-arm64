@@ -1,6 +1,6 @@
 # Dell Embedded Controller and fan behavior
 
-**Compatibilidad obligatoria con el futuro kernel de hibernación:** revisar [M3: matriz Dell EC v8 × SCMI × hibernación](hibernate-thermal-m3.md). El equipo se observó arrancado con `xps_ec_trial=20261107-stubble`, con el módulo `dell_xps_ec` activo. La fuente oficial de Ubuntu 7.3 del laboratorio todavía carece de este controlador y DTS; la integración futura queda bloqueada hasta conservar ambas capacidades. No reemplazar el módulo existente ni la configuración de arranque desde M3.
+**Compatibilidad obligatoria con el futuro kernel de hibernación:** revisar [M3: matriz Dell EC v8 × SCMI × hibernación](hibernate-thermal-m3.md). El equipo se observó arrancado con `xps_ec_trial=20261107-stubble`, con el módulo `dell_xps_ec` activo. La fuente Ubuntu 7.3 original carece de ese controlador y DTS. Ya existe [copia integrada de fuentes Dell EC v8 en laboratorio](thermal-hibernation-integration.md), pero sus pruebas de recuperación y compatibilidad de kernel completo siguen pendientes. No reemplazar el módulo existente ni la configuración de arranque desde M3.
 
 A [PATCH v8, published 2026-10-25](https://lkml.rescloud.iu.edu/2610.3/01866.html), introduces an EC driver for the Snapdragon X Elite Dell XPS 13 9345. The cover letter reports insufficient fan response under load, heavy throttling, and suspend/resume peripheral behavior.
 

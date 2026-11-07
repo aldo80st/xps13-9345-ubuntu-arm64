@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Work in existing isolated worktree: /home/amarquez/labs/xps13-9345-hibernation, branch feat/hibernate-readiness-20261106.
+- Work in existing isolated worktree: <worktree>/xps13-9345-hibernation, branch feat/hibernate-readiness-20261106.
 - Never modify /boot, EFI, NVRAM, GRUB, initramfs, installed kernel, BIOS, Windows, BitLocker, swap, system package selection or host services. No reboot or hibernate.
 - Docker build may create image/layers; sandboxed Docker containers mount only specific .local scratch and source read-only where possible, with no privileged mode or new Linux capabilities.
 - No repo push, merge, PR, exposed credentials, sharing of XPS private data or download of proprietary firmware. Inputs are Ubuntu kernel config and official package sources only.

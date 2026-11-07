@@ -1,6 +1,6 @@
 # M3 — Matriz de compatibilidad: hibernación × Dell EC v8 × SCMI
 
-**Fecha:** 2026-11-07 · **Resultado observado:** **NO_GO** para un kernel arrancable. **Alcance:** auditoría read-only, sin fusión de ramas ni cambios en el sistema.
+**Fecha:** 2026-11-07 · **Resultado en fuentes oficiales sin adaptar:** **NO_GO**. **Resultado en copia de fuentes con EC v8:** **REVIEW_REQUIRED**, aún **NO apto para arrancar**. Véase [integración reproducible](thermal-hibernation-integration.md). **Alcance:** preparación aislada sin modificar el sistema.
 **Contrato:** [M3 Thermal × Hibernate](superpowers/specs/2026-11-07-m3-thermal-hibernate-contract.md) · **Plan:** [Superpowers M3](superpowers/plans/2026-11-07-m3-thermal-hibernate-gate.md).
 
 ## Por qué los frentes no son intercambiables

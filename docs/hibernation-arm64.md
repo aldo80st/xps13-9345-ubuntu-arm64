@@ -33,7 +33,7 @@ La auditoría del candidato y las dependencias X1E80100 está en [M1: fuente Ubu
 
 ## Dependencia transversal obligatoria: control térmico y relojes del procesador
 
-Antes de construir un kernel de hibernación para arrancar en el Dell XPS 13 9345, ejecutar [M3: matriz EC v8 + SCMI](hibernate-thermal-m3.md) y su validador `scripts/hibernate-thermal-m3-gate.py`. La configuración M2 preserva los símbolos SCMI, pero las fuentes Ubuntu aún carecen del EC v8 y del Device Tree experimental que está usando el equipo; el resultado actual es **NO_GO**. Incluso `REVIEW_REQUIRED` exige revisión del hardware y no autoriza instalar nada. No fusionar las ramas térmicas ni reutilizar un módulo .ko compilado para el kernel anterior.
+Antes de construir un kernel de hibernación para arrancar en el Dell XPS 13 9345, ejecutar [M3: matriz EC v8 + SCMI](hibernate-thermal-m3.md) y su validador `scripts/hibernate-thermal-m3-gate.py`. La configuración M2 preserva los símbolos SCMI. Las fuentes Ubuntu originales carecen del EC v8 y del Device Tree experimental; dan **NO_GO**. Una [copia de fuentes integrada con EC v8](thermal-hibernation-integration.md) ya pasa la puerta estática como **REVIEW_REQUIRED**, lo cual todavía no autoriza compilar para instalar ni demuestra hibernación. Incluso `REVIEW_REQUIRED` exige revisión del hardware y no autoriza instalar nada. No fusionar las ramas térmicas ni reutilizar un módulo .ko compilado para el kernel anterior.
 
 ## Orden correcto, con dependencias explícitas
 

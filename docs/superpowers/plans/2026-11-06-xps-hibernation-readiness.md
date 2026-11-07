@@ -85,7 +85,7 @@ M5: decidir escalamiento a Canonical o Dell con repro exacto; merge tras revisi�
 
 ## Registro de ejecución verificada (2026-11-06)
 
-- Worktree: /home/amarquez/labs/xps13-9345-hibernation; rama: feat/hibernate-readiness-20261106; base: origin/main (5d8addf).
+- Worktree: <worktree>/xps13-9345-hibernation; rama: feat/hibernate-readiness-20261106; base: origin/main (5d8addf).
 - Task 1: first test run failed because script did not exist; after implementation 9/9 PASS. Commit f016650.
 - Task 2: runbook, clasificación de tickets, enlace README y verificaciones de archivos; commit 0061cfa.
 - Task 3: criterios GO/NO-GO, reversión y autorización documentados en runbook; no se modificaron arranque/firmware/swap.

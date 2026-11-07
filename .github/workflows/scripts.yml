@@ -3,10 +3,12 @@ on:
   push:
     paths:
       - "scripts/**"
+      - "tests/**"
       - ".github/workflows/scripts.yml"
   pull_request:
     paths:
       - "scripts/**"
+      - "tests/**"
       - ".github/workflows/scripts.yml"
   workflow_dispatch:
 permissions:
@@ -21,3 +23,5 @@ jobs:
           for script in scripts/*.sh; do
             bash -n "$script"
           done
+      - name: Python regression tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -q
