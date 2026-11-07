@@ -25,6 +25,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Epic XPS-HIB-01: milestones, agentes y seguimiento](docs/hibernate-epic-tracking.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
 - [H1 Qualcomm: matriz y manifiesto de parches](docs/hibernate-qualcomm-h1.md)
+- [H2: compilación aislada Dell EC v8 y Device Tree](docs/hibernate-ec-build-h2.md)
 
 ## Política de pruebas
 Cada solución deberá documentar versiones, síntomas, causa, referencias upstream, método, evidencia posterior y cómo deshacerla. Ninguna prueba puede desactivar Secure Boot, copiar certificados privados a GitHub ni realizar cambios irreversibles sin decisión explícita.

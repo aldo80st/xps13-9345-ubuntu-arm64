@@ -1,0 +1,14 @@
+# XPS-only H2 layer. Leaves the existing M2 image and Dockerfile unchanged.
+FROM xps-hibernate-kconfig:ubuntu26.10
+USER 0
+# Ubuntu CONFIG_GENDWARFKSYMS needs elfutils development headers and libraries.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libdw-dev \
+    && rm -rf /var/lib/apt/lists/*
+# Check headers AND linking without downloading or compiling kernel sources.
+RUN printf '#include <dwarf.h>\n#include <elfutils/libdw.h>\nint main(void) { return dwarf_end((Dwarf *)0); }\n' \
+      | gcc -x c - -ldw -lelf -o /tmp/h2-libdw-check \
+    && rm /tmp/h2-libdw-check \
+    && dpkg-query -W -f='${Package}=${Version}\n' > /etc/hibernate-ec-build-h2-packages.txt
+USER 10001
+WORKDIR /tmp
