@@ -24,6 +24,7 @@ Repositorio comunitario de problemas, diagnósticos, soluciones reproducibles y 
 - [Reproducción del controlador térmico Dell EC v8 en laboratorio](docs/thermal-hibernation-integration.md)
 - [Epic XPS-HIB-01: milestones, agentes y seguimiento](docs/hibernate-epic-tracking.md)
 - [Hibernación: revisión independiente de parches (Paseo)](docs/hibernate-patch-review-20261107.md)
+- [H1 Qualcomm: matriz y manifiesto de parches](docs/hibernate-qualcomm-h1.md)
 
 ## Política de pruebas
 Cada solución deberá documentar versiones, síntomas, causa, referencias upstream, método, evidencia posterior y cómo deshacerla. Ninguna prueba puede desactivar Secure Boot, copiar certificados privados a GitHub ni realizar cambios irreversibles sin decisión explícita.
