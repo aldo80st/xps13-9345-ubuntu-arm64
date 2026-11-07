@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "verdict": "NO_GO",
+  "dell_verified": false,
+  "requirements": {
+    "exact_ubuntu_base_and_ordered_patch_hashes": "UNKNOWN",
+    "dell_remoteproc_dt_firmware_inventory": "UNKNOWN",
+    "freeze_poweroff_restore_lifecycle_and_ordering": "UNKNOWN",
+    "balanced_refs_subdevices_and_failure_unwind": "UNKNOWN",
+    "smp2p_restore_and_pas_state_reconciliation": "UNKNOWN",
+    "dell_powercycle_thaw_test_resume_and_regressions": "UNKNOWN"
+  }
+}
