@@ -1,0 +1,29 @@
+name: XPS-VAL-01 evidence tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/xps_val01_*.py'
+      - 'tests/test_xps_val01.py'
+      - '.github/workflows/xps-val01.yml'
+  push:
+    paths:
+      - 'scripts/xps_val01_*.py'
+      - 'tests/test_xps_val01.py'
+      - '.github/workflows/xps-val01.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python version
+        run: python3 --version
+      - name: Hermetic privacy and regression gates
+        run: python3 -m unittest discover -s tests -p 'test_xps_val01.py' -v
+      - name: Syntax validation (no device interaction)
+        run: |
+          python3 -m py_compile scripts/xps_val01_collect.py
+          python3 -m py_compile scripts/xps_val01_compare.py

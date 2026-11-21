@@ -14,10 +14,21 @@
 | Problem | Evidence | Status | Documentation |
 | --- | --- | --- | --- |
 | DisplayLink D6000: EVDI fails under Secure Boot | `modprobe evdi`: Operation not permitted; service repeatedly fails | **Diagnosed; fix pending** | [EVDI/MOK](docs/secure-boot-evdi.md) |
-| Qualcomm IRIS video firmware | Missing `qcvss8380.mbn`, `-2` in journal | **Official Dell firmware installed, preserved across reboot; V4L2 device present; real decoding test pending. Overlay regression fixed.** | [Video firmware](docs/qcom-iris.md) |
+| Qualcomm IRIS video firmware | Missing `qcvss8380.mbn`, `-2` in journal | **Firmware installed; V4L2 H.264 real decoder smoke PASS on 2026-11-21; Chrome 158 VA-API still fails; overlay regression previously addressed.** | [Video firmware](docs/qcom-iris.md) |
 | Fan control / thermal throttling | Kernel EC patch v8 published Oct 25, 2026 | **Upstream patch; not installed** | [Thermal control](docs/thermal-ec.md) |
-| GNOME Resources 51.0: Qualcomm/Oryon CPU telemetry | Kernel exposes CPU temperatures, but Resources displays N/A; cpufreq policies absent | **Patch validated on upstream tag 51.0: 86 tests PASS; isolated GUI smoke PASS; distro app unchanged. CPU frequency pending kernel support.** | [Resources ARM64](docs/gnome-resources-arm64.md) |
+| GNOME Resources 51.0: Qualcomm/Oryon CPU telemetry | Kernel exposes CPU temperatures, but Resources displays N/A; cpufreq policies absent | **Upstream GNOME Resources patch tested previously (86 tests); distro app unchanged. As of 2026-11-21 three SCMI cpufreq policies now appear with 7.3.0-11; GUI telemetry must be rechecked.** | [Resources ARM64](docs/gnome-resources-arm64.md) |
 | Speaker channel mapping | PipeWire exposes FL/FR/RL/RR; real speaker output not fully validated | **Investigation** | [Audio](docs/audio.md) |
+
+## Hardware compatibility baseline — 2026-11-21
+
+The actively verified baseline is **Ubuntu 26.10 ARM64 / kernel 7.3.0-11**, with three `scmi` CPUFreq policies and an accessible Qualcomm Iris V4L2 H.264 decoder. Chrome 158 still reports VA-API initialization failure and uses FFmpeg software decoding for the inspected stream; hardware playback and network-origin stutter are distinct concerns. BIOS remains 2.14.0; do not infer that EC/reboot issues are fixed.
+
+- [Hardware compatibility strategy and boundaries](docs/xps-hw-compatibility-strategy-20261121.md)
+- [XPS-VAL-01 implementation / evidence / gates](docs/xps-val01-execution-20261121.md)
+- [Upstream status and provenance](docs/xps-val01-upstream-matrix.md)
+- [Maintainer drafts — not sent](docs/xps-val01-maintainer-draft.md)
+
+One-shot, no-install diagnostics: `python3 scripts/xps_val01_collect.py`; synthetic H.264 smoke: `bash scripts/xps_val01_video_smoke.sh`. No persistent service, driver modification, or boot change is part of these scripts.
 
 ## Safe workflow
 
