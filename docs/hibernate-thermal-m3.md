@@ -1,5 +1,14 @@
 # M3 — Matriz de compatibilidad: hibernación × Dell EC v8 × SCMI
 
+
+> **Actualización crítica — 2026-11-24 ([#50](https://github.com/aldo80st/xps13-9345-ubuntu-arm64/issues/50)):** el DTB histórico `42aa439d646ee83bf20bbcf062dd8c9b441962167eed2d9b0d9bcd3b97c60e06` asigna los canales ADC `144,145,146,147,148,14a,14b` a `sys_therm1..7` en orden incorrecto. Se conserva como evidencia, pero queda **NO_GO para arranque o aceptación térmica**. No se ha demostrado que esta discrepancia causara los timeouts de ADC anteriores.
+>
+> El parche original v8-3 establece `14a,14b,144,145,146,147,148`. Para el kernel **generic 7.3.0-11.12**, el candidato corregido tiene SHA-256 `357d12b1da0a44b0d9c305c5ad3dd9249f7a05d40331da1e09dc282aafee22b9`. El DTB de control reconstruido desde el paquete fuente exacto coincide byte a byte con el instalado; el DTS parcheado de forma independiente y el overlay corregido coinciden en propiedades y referencias tipadas bajo el comparador de laboratorio. El DTB de qcom-x1e difiere en estados PSCI: **no intercambiar DTBs entre kernels**.
+>
+> Gate obligatorio de mapeo antes de cualquier prueba física: `python3 scripts/verify-ec-dtb-mapping.py /ruta/al/candidato.dtb --expected-sha256 SHA256_VERIFICADO`. Comprueba la codificación FDT, los proveedores ADC/I2C/TLMM, el orden de sensores, registros y etiquetas, IRQ y pinctrl. `STATIC_MAPPING_PASS` no acredita la compatibilidad integral con el kernel, el control térmico físico ni autoriza arrancar. La auditoría privilegiada de solo lectura, la recuperación BitLocker/USB y la autorización específica del propietario siguen siendo gates separados.
+
+Los datos y conclusiones fechados el 2026-11-07 a continuación son históricos; esta actualización prevalece sobre la idoneidad del DTB anterior.
+
 **Fecha:** 2026-11-07 · **Resultado en fuentes oficiales sin adaptar:** **NO_GO**. **Resultado en copia de fuentes con EC v8:** **REVIEW_REQUIRED**, aún **NO apto para arrancar**. Véase [integración reproducible](thermal-hibernation-integration.md). **Alcance:** preparación aislada sin modificar el sistema.
 **Contrato:** [M3 Thermal × Hibernate](superpowers/specs/2026-11-07-m3-thermal-hibernate-contract.md) · **Plan:** [Superpowers M3](superpowers/plans/2026-11-07-m3-thermal-hibernate-gate.md).
 
