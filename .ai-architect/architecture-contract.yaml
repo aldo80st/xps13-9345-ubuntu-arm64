@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
-revision: 2
-scope: xps-authz-v1-1
+revision: 3
+scope: xps-authz-v1-1-y-asignacion-presupuestaria-v0-3
 architecture_style: controlador-local-determinista-con-frontera-de-privilegios
 quality_attributes:
   - name: privilege-isolation
@@ -19,6 +19,14 @@ quality_attributes:
     priority: 2
     rationale: Evidencia protegida y verificable.
     measurable_signal: Registro de grant, revoke, consumo, artefacto, resultado y recuperación sin secretos.
+  - name: budget-integrity
+    priority: 1
+    rationale: No exceder cuotas conocidas ni autorizar gasto adicional.
+    measurable_signal: Reservas concurrentes sin doble conteo y cero despachos facturables no autorizados.
+  - name: allocation-reproducibility
+    priority: 2
+    rationale: Decisiones explicables y comparables por clase de tarea.
+    measurable_signal: Replay determinista de entradas, versión de política, asignación y motivo.
 components:
   - id: owner-control
     responsibility: Conceder y revocar mediante autenticación administrativa local.
@@ -44,6 +52,26 @@ components:
     responsibility: Registrar evidencias y exponer estados sanitizados.
     owns_data: [recibos protegidos por root]
     public_interfaces: [append-receipt, read-sanitized-status]
+  - id: resource-inventory
+    responsibility: Normalizar modelos, modalidad, herramientas, privacidad, salud y límites por cuenta y ventana.
+    owns_data: [observaciones de cuota y capacidades con procedencia y caducidad]
+    public_interfaces: [read-resource-snapshot]
+  - id: allocation-policy
+    responsibility: Filtrar y recomendar asignación global por dependencia, riesgo, calidad, esfuerzo y presupuesto.
+    owns_data: [reglas versionadas de asignación aprobadas por propietario]
+    public_interfaces: [recommend-allocation]
+  - id: budget-ledger
+    responsibility: Registrar reservas, consumos, incertidumbre y conciliación atómica de todos los límites aplicables.
+    owns_data: [reservas por paquete y ventanas compartidas]
+    public_interfaces: [read-budget, reserve-capacity, reconcile-capacity]
+  - id: paseo-adapter
+    responsibility: Traducir decisiones autorizadas a Paseo y reconciliar identidad y estado del despacho sin duplicados.
+    owns_data: [correlación entre paquete, intento, agente y checkpoint]
+    public_interfaces: [observe-dispatch, reconcile-dispatch, submit-approved-package]
+  - id: performance-history
+    responsibility: Registrar aceptación independiente, tiempo, consumo observado y retrabajo por modelo y clase.
+    owns_data: [métricas de resultados y evidencia de evaluación]
+    public_interfaces: [read-performance, record-outcome]
 external_boundaries:
   - id: local-admin
     responsibility: Propietario autenticado, administración local y recuperación.
@@ -51,6 +79,10 @@ external_boundaries:
     responsibility: ChatGPT y Paseo sin autoridad administrativa propia.
   - id: os-kernel
     responsibility: Linux, systemd, sensores, módulos oficiales y fuentes de auditoría.
+  - id: paseo-runtime
+    responsibility: Infraestructura existente de agentes en LUCIFER01, sin gateway adicional.
+  - id: model-provider
+    responsibility: Modalidades de acceso y cuotas externas observables, no autoridad sobre política local.
 dependency_rules:
   - {source: local-admin, target: owner-control, policy: allow-via-interface, via_interface: grant, rationale: Autoridad del propietario.}
   - {source: local-admin, target: owner-control, policy: allow-via-interface, via_interface: revoke, rationale: Revocación independiente.}
@@ -71,6 +103,17 @@ dependency_rules:
   - {source: recovery-manager, target: audit-ledger, policy: allow-via-interface, via_interface: append-receipt, rationale: Evidencia de recuperación.}
   - {source: policy-engine, target: audit-ledger, policy: allow-via-interface, via_interface: append-receipt, rationale: Evidencia de política.}
   - {source: agent-adapter, target: audit-ledger, policy: allow-via-interface, via_interface: read-sanitized-status, rationale: Sin escritura agente.}
+  - {source: allocation-policy, target: resource-inventory, policy: allow-via-interface, via_interface: read-resource-snapshot, rationale: Datos con procedencia.}
+  - {source: allocation-policy, target: budget-ledger, policy: allow-via-interface, via_interface: read-budget, rationale: Selección con restricciones.}
+  - {source: allocation-policy, target: performance-history, policy: allow-via-interface, via_interface: read-performance, rationale: Evidencia histórica.}
+  - {source: allocation-policy, target: paseo-runtime, policy: deny, rationale: Modo sombra sin despacho directo.}
+  - {source: allocation-policy, target: owner-control, policy: deny, rationale: Presupuesto no concede autoridad hardware.}
+  - {source: paseo-adapter, target: budget-ledger, policy: allow-via-interface, via_interface: reserve-capacity, rationale: Reserva previa a despacho autorizado futuro.}
+  - {source: paseo-adapter, target: budget-ledger, policy: allow-via-interface, via_interface: reconcile-capacity, rationale: Consumo e incertidumbre.}
+  - {source: paseo-adapter, target: paseo-runtime, policy: allow, rationale: Observar y reconciliar en sombra; despacho solo después de gate.}
+  - {source: resource-inventory, target: model-provider, policy: allow, rationale: Metadatos permitidos por modalidad.}
+  - {source: paseo-adapter, target: owner-control, policy: deny, rationale: No elevar permisos.}
+  - {source: paseo-adapter, target: action-executor, policy: deny, rationale: No eludir AUTHZ.}
 required_practices:
   - Identidad dedicada sin grupos administrativos ni credenciales, sockets o sesiones heredadas; retirar rutas agente antiguas tras validar migración y rollback.
   - Grant local autenticado, 1200 segundos CLOCK_BOOTTIME y boot ID; cinco audit, un iris-r0 y un thermal; consumo atómico antes de efectos, sin renovar o recuperar usos por fallo.
@@ -87,13 +130,24 @@ required_practices:
   - "R0 recuperación independiente de cliente y proceso principal: guardar marcador durable con boot, autorización y artefacto oficial antes de descargar; restaurar sin forzar, con presupuesto explícito y supervisor, incluso tras revocar/caducar."
   - "Mantener bloqueo hasta identidad de módulo oficial, dispositivos y smoke 120 cuadros CPU/Iris. Si restauración o smoke falla conservar marcador; si boot cambia, bloquear y pedir reconciliación local sin carga automática. Fallo de registro no cancela recuperación ya comprometida."
   - Recibos de admisión, resultado y recuperación correlacionados por ID; error de registro bloquea nuevas acciones, incluso auditoría. Persistir evidencia de fallo cuando posible; no declarar PASS sin recibo durable y verificación. Ensayar disco lleno, proceso caído, carrera, pérdida de cliente y manipulación desde ambas identidades.
+  - "ADR-002. Cero MXN adicionales por defecto. Identificar modalidad de autenticación y facturación; denegar cualquier consumo monetario adicional posible no autorizado. Preferir herramientas deterministas y modalidades gratuitas aptas en privacidad y calidad; no fijar roles por proveedor."
+  - "Inventariar límites por cuenta, familia, modelo y ventana con unidad, saldo o intervalo, origen, fecha, caducidad y renovación. Tokens de entrada, salida, caché y razonamiento cuando observables, separados de cuotas de mensajes, tiempo u otras unidades. No convertirlas sin evidencia ni sumar saldos compartidos."
+  - "Reservas iniciales sobre capacidad utilizable por límite conocido: OpenAI y Anthropic 65/25/10 por ejecución/revisión/contingencia; gratuitas 85/10/5. Parámetros provisionales, no saldos medidos. Repartir trabajo útil antes de renovación sin sacrificar revisión ni seguridad. Considerar todos los límites simultáneos y consumo ajeno al piloto."
+  - "Admisibilidad previa a ranking: alcance, privacidad por modalidad, herramientas, permisos, salud, cuota, plazo, dependencias y capacidad de revisión. Saldo desconocido no es infinito ni cero; únicamente pilotos acotados sin gasto adicional verificado, sin afirmar reserva exacta. Bloquear si no puede comprobarse elegibilidad económica o de datos."
+  - "Seleccionar modelo y esfuerzo mínimo suficiente por categoría; optimizar conjunto de paquetes, camino crítico, capacidad de revisión y coste de oportunidad de cuota. Versionar entradas y reglas, justificar desempate estable, reproducir recomendación; no inventar puntuaciones por datos faltantes."
+  - "Reservar todos los límites aplicables atómicamente antes de un futuro despacho autorizado. Identificador estable por paquete e intento; estados propuesto/reservado/despacho incierto/confirmado/terminal. Reconciliar con Paseo antes de repetir o liberar reserva ante respuesta ausente; no duplicar escritores ni trabajo. Transferir checkpoint al reasignar."
+  - "Registrar por modelo, versión, modalidad, clase y esfuerzo: resultado aceptado, primera revisión, retrabajo, defectos detectados/escapados, duración y consumo observado o desconocido. Separar fallos del entorno de desempeño. Revisar calibración con muestra suficiente y aprobación del propietario; no autoeditar política."
+  - "Modo sombra inicial sin iniciar, cancelar ni reasignar agentes, sin reservar cuota externa ni modificar privilegios. Comparar recomendaciones con decisiones existentes, pruebas simuladas y replay. Activación operativa solo tras aceptación y transición explícita de AGENTS.md; revisor distinto del implementador en cambios críticos."
 prohibited_practices:
   - Shell root, argumentos o rutas arbitrarias, comodines, renovación por agente o credenciales administrativas compartidas.
   - Arranque, GRUB, EFI, firmware, Secure Boot, BitLocker, particiones, reinicio, módulos experimentales y ajustes térmicos persistentes.
   - Eludir controles de conectores o usar identidad administrativa como sustituto del canal restringido.
   - Declarar aislamiento efectivo si un MCP administrativo sigue disponible a los agentes.
   - Instalar o activar sin gates; ejecutar R0 o térmica sin grant local vigente. No habilitar después de registrar un fallo de evidencia o recuperación pendiente.
-decision_ids: [ADR-001]
+  - "Facturación por API de pago, compra de créditos, cambio de modalidad con coste o uso de datos incompatible sin aprobación específica. No interpretar suscripción como capacidad ilimitada."
+  - "Usar proveedor alternativo para eludir cuotas, sandbox, permisos o gates; reintento ciego de despacho incierto; contar envío como aceptación; publicar credenciales o contenido privado a modalidad no autorizada."
+  - "Desplegar un gateway nuevo, habilitar control automático de Paseo desde modo sombra, modificar AUTHZ o otros proyectos por esta decisión."
+decision_ids: [ADR-001, ADR-002]
 unresolved_questions:
   - id: Q-001
     question: Mecanismos de conexión y credenciales para migrar ambos MCP sin heredar autoridad administrativa.
@@ -103,5 +157,15 @@ unresolved_questions:
   - id: Q-002
     question: Aceptación de política, unidades y recuperación sobre kernel nativo.
     decision_impact: Bloquea M4 y M5.
+    critical: true
+    answer: null
+  - id: Q-003
+    question: Límites reales, unidades, ventanas compartidas y observabilidad por modalidad de cada familia.
+    decision_impact: Bloquea reserva cuantitativa y activación operativa; no bloquea modo sombra con UNKNOWN.
+    critical: true
+    answer: null
+  - id: Q-004
+    question: Condiciones de tratamiento de datos y garantía de no facturación de cada modalidad gratuita o local.
+    decision_impact: Bloquea envío de contenido no público a modalidad no aprobada.
     critical: true
     answer: null

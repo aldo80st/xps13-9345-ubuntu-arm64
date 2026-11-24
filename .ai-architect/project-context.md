@@ -1,4 +1,4 @@
-# XPS AUTHZ v1.1 — contexto
+# XPS — contexto arquitectónico: AUTHZ v1.1 y asignación v0.3
 
 Decisión del propietario: 2026-11-24. Alcance exclusivo XPS-03, Dell XPS 13 9345 Ubuntu ARM64. AGENTS.md gobierna ejecución, evidencia y autorizaciones. #58 es el checkpoint.
 
@@ -7,3 +7,7 @@ La XPS ejecuta 7.3.0-11-generic. Observación de 14:01–14:02 CST: ambos MCP (a
 Objetivo: autoridad del propietario separada de la identidad agente; operaciones deterministas, acotadas, auditables y reversibles. Mantener administración local y acceso de recuperación. Paseo/LUCIFER01 coordina ingeniería, Claude implementa, Codex revisa; la XPS ejecuta aceptación nativa. ADR-001 y contrato revisión 2. La aprobación de diseño no concede privilegios operativos. No almacenar secretos.
 
 **Reconciliación M0, 14:11 CST:** revisión independiente Codex CHANGES_REQUIRED. Revisión 2 precisa frontera de ambas rutas MCP, compromiso irreversible, caducidad/revocación, persistencia antes de efectos, recuperación de Iris y pruebas negativas. No modifica la decisión aprobada ni amplía operaciones. M1/M2 siguen sin aceptación nativa. La TTY no prueba presencia física; el agente nunca solicita credenciales del propietario.
+
+## Política adaptativa v0.3 — aprobada el 2026-11-24
+El propietario confirmó dos familias de suscripción (OpenAI y Anthropic) y preferencia por incorporar Google y otras modalidades gratuitas. El gasto adicional autorizado por defecto es cero MXN. El objetivo es maximizar paquetes aceptados por capacidad disponible, no minimizar tokens indiscriminadamente ni asignar roles fijos. ADR-002 complementa ADR-001 sin modificar el catálogo, gates o privilegios de AUTHZ. Piloto exclusivo XPS en LUCIFER01/Paseo; reutilización en Ánima es objetivo futuro, sin cambios de otros proyectos. El coordinador queda inicialmente en modo sombra; AGENTS.md conserva su regla operativa hasta aceptación y revisión explícita de esa transición.
+Evidencia: #58 comentario 7147287178, PR #62–#64; Claude agotó cuota y Codex/Antigravity completaron paquetes, 221/221 regresiones ARM64. Despachos posteriores sin ID confirmado prueban necesidad de reconciliación, no falta de capacidad del modelo. Saldos exactos, límites compartidos, reinicios de ventanas y condiciones de privacidad por modalidad aún no verificados. AUTHZ no instalado según inspección de 17:19; seguridad independiente de la asignación.
