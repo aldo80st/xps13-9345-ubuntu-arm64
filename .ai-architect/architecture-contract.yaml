@@ -1,0 +1,100 @@
+schema_version: "1.0.0"
+revision: 1
+scope: xps-authz-v1-1
+architecture_style: controlador-local-determinista-con-frontera-de-privilegios
+quality_attributes:
+  - name: privilege-isolation
+    priority: 1
+    rationale: El agente no obtiene administración fuera de operaciones fijas.
+    measurable_signal: Pruebas negativas de grupos, sockets, permisos, credenciales y MCP heredados.
+  - name: bounded-authorization
+    priority: 1
+    rationale: Autoridad temporal y consumo explícitos.
+    measurable_signal: 1200 segundos por boot; cinco audit, un iris-r0 y un thermal.
+  - name: recoverability
+    priority: 1
+    rationale: Recuperación oficial independiente del cliente.
+    measurable_signal: Restauración comprobada tras fallo o desconexión; marcador pendiente bloquea nuevas pruebas.
+  - name: auditability
+    priority: 2
+    rationale: Evidencia protegida y verificable.
+    measurable_signal: Registro de grant, revoke, consumo, artefacto, resultado y recuperación sin secretos.
+components:
+  - id: owner-control
+    responsibility: Conceder y revocar mediante autenticación administrativa local.
+    owns_data: []
+    public_interfaces: [grant, revoke]
+  - id: agent-adapter
+    responsibility: Recibir solicitudes fijas con identidad de servicio no administrativa.
+    owns_data: []
+    public_interfaces: [status, request-action]
+  - id: policy-engine
+    responsibility: Validar host, boot, identidad, vigencia, alcance y consumir usos atómicamente.
+    owns_data: [estado de autorización protegido por root]
+    public_interfaces: [grant-policy, revoke-policy, admit-action, read-status]
+  - id: action-executor
+    responsibility: Ejecutar auditoría de lectura, R0 oficial o térmica acotada mediante unidades diferenciadas.
+    owns_data: []
+    public_interfaces: [run-fixed-action]
+  - id: recovery-manager
+    responsibility: Restaurar exclusivamente Iris oficial tras un R0 admitido.
+    owns_data: [marcador de recuperación protegido por root]
+    public_interfaces: [restore-stock]
+  - id: audit-ledger
+    responsibility: Registrar evidencias y exponer estados sanitizados.
+    owns_data: [recibos protegidos por root]
+    public_interfaces: [append-receipt, read-sanitized-status]
+external_boundaries:
+  - id: local-admin
+    responsibility: Propietario autenticado, administración local y recuperación.
+  - id: mcp-client
+    responsibility: ChatGPT y Paseo sin autoridad administrativa propia.
+  - id: os-kernel
+    responsibility: Linux, systemd, sensores, módulos oficiales y fuentes de auditoría.
+dependency_rules:
+  - {source: local-admin, target: owner-control, policy: allow-via-interface, via_interface: grant, rationale: Autoridad del propietario.}
+  - {source: local-admin, target: owner-control, policy: allow-via-interface, via_interface: revoke, rationale: Revocación independiente.}
+  - {source: mcp-client, target: agent-adapter, policy: allow-via-interface, via_interface: request-action, rationale: Solicitudes fijas.}
+  - {source: mcp-client, target: agent-adapter, policy: allow-via-interface, via_interface: status, rationale: Estado sanitizado.}
+  - {source: owner-control, target: policy-engine, policy: allow-via-interface, via_interface: grant-policy, rationale: Autenticación local.}
+  - {source: owner-control, target: policy-engine, policy: allow-via-interface, via_interface: revoke-policy, rationale: Revocar nuevas operaciones y carga térmica.}
+  - {source: agent-adapter, target: policy-engine, policy: allow-via-interface, via_interface: admit-action, rationale: Consumo antes de efectos.}
+  - {source: agent-adapter, target: policy-engine, policy: allow-via-interface, via_interface: read-status, rationale: Estado sin modificación.}
+  - {source: agent-adapter, target: owner-control, policy: deny, rationale: No concederse permisos.}
+  - {source: agent-adapter, target: action-executor, policy: deny, rationale: No saltar admisión.}
+  - {source: agent-adapter, target: recovery-manager, policy: deny, rationale: No invocar recuperación arbitraria.}
+  - {source: policy-engine, target: action-executor, policy: allow-via-interface, via_interface: run-fixed-action, rationale: Operación admitida.}
+  - {source: action-executor, target: recovery-manager, policy: allow-via-interface, via_interface: restore-stock, rationale: Restauración obligatoria de R0.}
+  - {source: action-executor, target: os-kernel, policy: allow, rationale: Acceso según permisos de cada operación.}
+  - {source: recovery-manager, target: os-kernel, policy: allow, rationale: Solo módulo oficial fijado.}
+  - {source: action-executor, target: audit-ledger, policy: allow-via-interface, via_interface: append-receipt, rationale: Evidencia de operación.}
+  - {source: recovery-manager, target: audit-ledger, policy: allow-via-interface, via_interface: append-receipt, rationale: Evidencia de recuperación.}
+  - {source: policy-engine, target: audit-ledger, policy: allow-via-interface, via_interface: append-receipt, rationale: Evidencia de política.}
+  - {source: agent-adapter, target: audit-ledger, policy: allow-via-interface, via_interface: read-sanitized-status, rationale: Sin escritura agente.}
+required_practices:
+  - Identidad dedicada sin grupos administrativos ni credenciales, sockets o sesiones heredadas; retirar rutas agente antiguas tras validar migración y rollback.
+  - Grant local autenticado, 1200 segundos CLOCK_BOOTTIME y boot ID; cinco audit, un iris-r0 y un thermal; consumo atómico antes de efectos, sin renovar o recuperar usos por fallo.
+  - Código, configuración, estado y recibos protegidos por root; argumentos y unidades exactos, entorno limpio, sin scripts de home privilegiados.
+  - Auditoría con lectura de módulos, sin CAP_SYS_MODULE ni syscalls de carga o descarga; no usar aislamiento que oculte los archivos requeridos.
+  - R0 fijado a kernel y hash oficial; energía, identidad y ausencia de usuarios comprobadas; sin fuerza; recuperación oficial independiente y acotada.
+  - Térmica sin privilegios; un trabajador 10 segundos, cerca de 25 por ciento de un núcleo; inicio menor a 55 C, abortar a 65 C o batería a 40 C, alimentación externa y batería al menos 30 por ciento; sensor inválido implica denegación.
+  - Revocar nuevas acciones y detener térmica; no impedir la restauración de R0 ya admitido. Bloquear operaciones incompatibles si recuperación pendiente.
+  - Validar nativamente identidad, permisos, unidades, recuperación y pruebas negativas antes de activar; guardar recibos y hashes.
+prohibited_practices:
+  - Shell root, argumentos o rutas arbitrarias, comodines, renovación por agente o credenciales administrativas compartidas.
+  - Arranque, GRUB, EFI, firmware, Secure Boot, BitLocker, particiones, reinicio, módulos experimentales y ajustes térmicos persistentes.
+  - Eludir controles de conectores o usar identidad administrativa como sustituto del canal restringido.
+  - Declarar aislamiento efectivo si un MCP administrativo sigue disponible a los agentes.
+  - Instalar o activar sin gates; ejecutar R0 o térmica sin grant local vigente.
+decision_ids: [ADR-001]
+unresolved_questions:
+  - id: Q-001
+    question: Mecanismos de conexión y credenciales para migrar ambos MCP sin heredar autoridad administrativa.
+    decision_impact: Bloquea aceptación M1 y M3.
+    critical: true
+    answer: null
+  - id: Q-002
+    question: Aceptación de política, unidades y recuperación sobre kernel nativo.
+    decision_impact: Bloquea M4 y M5.
+    critical: true
+    answer: null
