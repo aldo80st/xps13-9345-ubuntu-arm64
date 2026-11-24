@@ -1,8 +1,8 @@
-# Plan de implementación — XPS AUTHZ v1.1
+# Plan de implementación — XPS AUTHZ v1.1 y asignación v0.3
 
 ## Decisiones aceptadas
 
-ADR-001, contrato revisión 2. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
+ADR-001 y ADR-002, contrato revisión 5. Los hitos M0–M6 de AUTHZ permanecen independientes. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
 
 ## Milestones
 
@@ -40,3 +40,25 @@ Sin arranque, reinicio, firmware, módulos experimentales, Secure Boot/BitLocker
 ## Preguntas pendientes
 
 Q-001 bloquea migración real M1/M3. Q-002 bloquea M4/M5. Confirmar preparación física y activar localmente cuando los gates técnicos estén cerrados; TTY sola no acredita presencia. Auditoría EC/SB y arranque experimental continúan como gates separados.
+
+## Carril de asignación presupuestaria (ADR-002)
+IDs P0–P7 separados de AUTHZ. No ejecutar paquetes de aplicación por la sola aprobación de arquitectura.
+
+| Hito | Resultado, alcance y dependencia | Aceptación observable |
+|---|---|---|
+| P0 | ADR-002 y bundle completo, revisión 5. | Validación canónica, escaneo y lectura exacta; revisión independiente. |
+| P1 | resource-inventory, adaptadores de observación Paseo y límites por cuenta/modelo/ventana. | Fixtures de cuota compartida, múltiple ventana, expiración, UNKNOWN, modalidad y privacidad; no secretos. |
+| P2 | performance-history, taxonomía y registro de paquetes. | Métricas separadas por modelo/versión/esfuerzo/clase; distinguir fallo de entorno y ausencia de datos. |
+| P3 | allocation-policy, recomendación determinista en sombra. | Replay estable, calidad material superior frente a gratuito apto, calidad comparable favorece eficiencia; UNKNOWN con coste cero verificado y facturación no verificada se simulan sin despacho; elegir herramienta determinista suficiente. |
+| P4 | budget-ledger, reservas simuladas simultáneas, dependencias y revisores. | Carrera, doble conteo, agotamiento, renovación, uso externo y cuota desconocida; reserva de revisión y contingencia. |
+| P5 | paseo-adapter, correlación y reconciliación simulada/observacional. | Timeout sin ID, confirmación tardía cruzando renovación y consumo externo, caída, duplicado y checkpoint; retención de reservas y exclusión hasta evidencia positiva de no inicio o terminal y reconciliación; nunca liberar por timeout. |
+| P6 | Comparación en sombra XPS, calibración propuesta. | Resultados aceptados, consumo cuando observable, duración y retrabajo; cero despachos del selector y ningún gasto extra; informe de incertidumbre. |
+| P7 | Activación futura revisada de asignación con Paseo existente. | P1–P6 PASS, Q-003/Q-004 resueltas para cada modalidad elegible; negar despacho con límite UNKNOWN o facturación/privacidad no verificada. Antes de cambio crítico, identidad distinta de revisor y reserva comprobada. Revisión independiente, aceptación explícita de transición AGENTS.md y rollback sin duplicar paquetes. |
+
+Restricciones: presupuesto adicional 0 MXN; cuotas de suscripción no equivalen a tokens API; aplicar todos los límites sin doble conteo. Reservas iniciales pagadas 65/25/10 y gratuitas 85/10/5, ajustables solo con evidencia y aprobación. No confundir disponibilidad anunciada con despacho confirmado. No usar otros proyectos como banco de pruebas ni introducir infraestructura redundante. Mantener autorización hardware ADR-001 intacta, incluido G-ID. No activar facturación ni comprar créditos. Datos y cuotas desconocidos se registran como tales. La coordinación manual continúa hasta P7.
+
+### Precisión de calidad (revisión 4)
+P1: identificar versión y arnés realmente disponibles; conservar referencias externas fechadas y condiciones de evaluación. P2: taxonomía con implementación, pruebas, refactorización, comprensión, diagnóstico, seguridad y herramientas. P3: probar precedencia de calidad sobre gratuidad cuando existe diferencia material y umbral de calidad; si candidatos equivalentes dentro de incertidumbre, elegir menor coste de oportunidad. P6: comparar paquetes equivalentes, resultados independientes, consumo y retrabajo; no promover un modelo por ranking genérico. P7: mantener presupuesto cero y gates de ADR-001. Ningún benchmark autoriza instalar, despachar o facturar.
+
+### Gates adicionales de revisión 5
+P6 conserva AGENTS.md vigente; no existe excepción de despacho desde el selector para pilotos de cuota desconocida. El coordinador manual conserva únicamente su autoridad previa. P4/P5 deben ensayar reserva simultánea compartida, fallo antes/después de admisión, consumo externo, rollover con despacho incierto, confirmación tardía, resultado terminal sin uso cuantificable y ausencia de prueba de no inicio. Mantener paquete y capacidad comprometidos o en cuarentena; no reenviar hasta reconciliar. P7 comprueba identidades independientes y presupuesto de revisión antes de admitir cambios críticos, difiere si falta capacidad. Q-003/Q-004 siguen abiertas aunque Paseo ya proporciona observaciones de cuenta.
