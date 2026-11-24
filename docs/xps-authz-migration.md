@@ -7,7 +7,7 @@ Estado: **diseño de integración**. Sin cambios en host, cuentas, credenciales,
 | Transporte IPC de laboratorio v1 | **PASS** 11 pruebas, ARM64 nativo y LUCIFER01 |
 | Transporte IPC v2 (`operation_phase`, `operation_outcome` nullable, `status_provider`) | **PASS** 13/13 LUCIFER01; nativo NOT_RUN, superado por v3 (no PASS retroactivo) |
 | Transporte IPC v3 | **PASS** 14/14 aarch64 nativo y LUCIFER01; revisión estática **PASS** |
-| Broker de laboratorio | 9/9 pruebas; revisión independiente **PASS** del broker v3 aislado; integración con política pendiente |
+| Broker de laboratorio | 10/10 pruebas; revisión independiente **PASS**; ocho pruebas de composición con política real y hardware simulado |
 | Migración S0–S9, R1–R16, gates G-* | **NOT_RUN** |
 | Registro durable de tramas rechazadas | no implementado; sin afirmación |
 
@@ -132,7 +132,7 @@ Además aplican G-LEASE, G-THERM, G-LEDGER, G-R0 y G-AUDIT del plan (M4).
 | HUMAN_REQUIRED | Revocación de tokens heredados (S7) | MCP heredados activos bajo UID 1000 | Propietario revoca tokens tras aceptar S5–S6; prueba: R13. Razón: irreversible para la sesión actual |
 | TECHNICAL_BLOCKED | Sockets abstractos y listeners loopback | 3 abstractos, 8 loopback sin autenticación caracterizada | Caracterizar en laboratorio (S1–S2); si no aislables → fail closed |
 | TECHNICAL_BLOCKED | Q-001 (contrato) | mecanismo de credenciales por conector no verificado | resolver con S2–S5 |
-| PASS aislado / integración pendiente | Broker de laboratorio v3 | 9/9 pruebas y revisión independiente PASS; secuencia/acción/ID frescos | probar política real y fallos de almacenamiento; no habilitar producción |
+| PASS laboratorio / producción pendiente | Broker | 10/10 pruebas, revisión PASS y composición real de política; sin ACK ante ledger_fault | validar registro durable de rechazos, servicio instalado e identidad real; no habilitar producción |
 | NOT_RUN | R1–R16, P13–P16, G-*, migración S0–S9 | sin ejecución | laboratorio primero; XPS después de S3–S5 |
 
 No se solicita shell root, cambios en el home o grupos del propietario, ni otra aprobación general del diseño.

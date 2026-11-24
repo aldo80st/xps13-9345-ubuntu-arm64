@@ -1,0 +1,23 @@
+# Fixture de laboratorio. NO INSTALAR NI ACTIVAR.
+[Unit]
+Description=XPS AUTHZ lab fixture - bounded thermal worker
+ConditionPathExists=!/usr/bin/true
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/true
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+ProtectKernelModules=yes
+DynamicUser=yes
+CPUQuota=25%
+RuntimeMaxSec=10s
+TimeoutStopSec=1s
+KillMode=control-group
+SendSIGKILL=yes
+SystemCallFilter=~@module

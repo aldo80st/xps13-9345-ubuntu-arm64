@@ -1,0 +1,13 @@
+# Fixture de laboratorio. NO INSTALAR NI ACTIVAR.
+[Unit]
+Description=XPS AUTHZ lab fixture - broker socket
+ConditionPathExists=!/usr/bin/true
+
+[Socket]
+ListenStream=/run/xps-authz-lab.sock
+Accept=no
+Service=xps-authz-lab-broker.service
+SocketUser=root
+SocketGroup=xps-agent
+SocketMode=0660
+RemoveOnStop=yes

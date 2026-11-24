@@ -7,8 +7,8 @@ Estado: **diseño candidato para laboratorio**. No es unidad instalable, no auto
 | Transporte IPC v1 de laboratorio (parser/handler, sin daemon ni socket instalado) | **PASS** 11 pruebas en ARM64 nativo (XPS) y en LUCIFER01 |
 | Transporte IPC v2 (`operation_phase`, `operation_outcome`, `status_provider`) | **PASS** 13/13 en LUCIFER01; ARM64 nativo NOT_RUN, **superado por v3** (no se convierte retroactivamente en PASS) |
 | Transporte IPC v3 | **PASS** 14/14 en aarch64 nativo (XPS) y en LUCIFER01; revisión estática **PASS** |
-| Broker de laboratorio | 9/9 pruebas; revisión independiente **PASS** v3 aislado; integración real pendiente |
-| Política, ledger durable, ejecutores, recuperación R0 | **NOT_RUN** (no integrados) |
+| Broker de laboratorio | 10/10 pruebas; revisión independiente **PASS**; 8 pruebas de composición con política real |
+| Política, ledger durable, ejecutores, recuperación R0 | **PASS laboratorio** con estado temporal y efectos simulados; producción NOT_RUN |
 | Migración de identidades y MCP (`docs/xps-authz-migration.md`) | **NOT_RUN** |
 | Registro de tramas rechazadas | no durable todavía; sin afirmación de durabilidad |
 
@@ -67,14 +67,14 @@ Claves documentadas desde IPC v2; IPC v3 (14/14 PASS) es la versión vigente del
 Los valores exactos de `reason`, `operation_phase` y `operation_outcome`, y la asignación `DENIED`/`ERROR` por caso, son los definidos por el handler IPC v3 de laboratorio; este documento no los redefine ni los amplía. Un valor `null` o desconocido nunca se interpreta como éxito.
 
 - `STATUS`: respuesta a `status\n`; no consume usos. Se obtiene de un **`status_provider` separado** del camino de admisión: solo lectura de estado sanitizado, sin capacidad de consumir, conceder ni iniciar efectos.
-- `ACCEPTED`: identifica una admisión durable nueva, vinculada a acción, ID y secuencia posterior al inicio de la solicitud. Compromiso y marcador R0 durables preceden a cualquier efecto; el ACK no significa éxito. El broker v3 se probó con fixtures; su integración con la política real aún es gate.
+- `ACCEPTED`: identifica una admisión durable nueva, vinculada a acción, ID y secuencia posterior al inicio de la solicitud. Compromiso y marcador R0 durables preceden a cualquier efecto; el ACK no significa éxito. El broker se probó con política real, almacenamiento temporal y efectos simulados. La integración con servicios y hardware reales sigue pendiente.
 - `DENIED`: política (sin lease, caducado, revocado, sin cupo, peer no autorizado, `recovery_pending`).
 - `BUSY`: otra operación admitida en curso (un efecto por vez); sin consumo.
 - `ERROR`: fallo interno o resultado incierto. Puede ocurrir antes o después de admisión/compromiso/efecto. No reintentar ni asumir devolución de cupo: consultar estado y recibos; si no se puede reconciliar, bloquear la continuación.
 
 ### Reconciliación de fase/resultado
 
-Implementada en el IPC v2 como forma de respuesta (`operation_phase`, `operation_outcome`, `status_provider`). Su **veracidad** depende del ledger durable (G-LEDGER) y del marcador R0 (G-R0), que no están integrados: hasta la integración, estos campos no acreditan el estado real de ningún efecto en la XPS.
+Implementada en el IPC v2 como forma de respuesta (`operation_phase`, `operation_outcome`, `status_provider`). Su **veracidad** depende del ledger durable (G-LEDGER) y del marcador R0 (G-R0), validados en composición de laboratorio; estos campos no acreditan el estado real de ningún efecto en la XPS.
 
 ### Reintentos
 
@@ -94,7 +94,7 @@ Bajo un bloqueo común con revocación y caducidad: validar peer, lease, boot, c
 
 ## 6. Casos de laboratorio del parser/handler
 
-Especificación de cobertura para el parser/handler de laboratorio (sin daemon ni socket instalado). Resultados reportados por el laboratorio: IPC v1 11 PASS (ARM64 nativo y LUCIFER01); IPC v2 13/13 PASS en LUCIFER01 (nativo NOT_RUN, superado); IPC v3 14/14 PASS en aarch64 nativo y LUCIFER01, revisión estática PASS. Broker v3: 9/9 pruebas y revisión PASS de correlación; P13–P16 aún requieren evidencia de integración completa. La correspondencia exacta entre esas pruebas y los IDs P siguientes se toma del reporte del laboratorio y no se infiere aquí; lo no cubierto queda **NOT_RUN**.
+Especificación de cobertura para el parser/handler de laboratorio (sin daemon ni socket instalado). Resultados reportados por el laboratorio: IPC v1 11 PASS (ARM64 nativo y LUCIFER01); IPC v2 13/13 PASS en LUCIFER01 (nativo NOT_RUN, superado); IPC v3 14/14 PASS en aarch64 nativo y LUCIFER01, revisión estática PASS. Broker: 10/10 y revisión PASS; ocho pruebas de composición, incluido fallo de publicación del token tras el resultado. P13–P16 mantienen sus gates de aceptación completa. La correspondencia exacta entre esas pruebas y los IDs P siguientes se toma del reporte del laboratorio y no se infiere aquí; lo no cubierto queda **NOT_RUN**.
 
 | ID | Entrada / condición | Esperado | Capa |
 |---|---|---|---|
@@ -113,3 +113,5 @@ Especificación de cobertura para el parser/handler de laboratorio (sin daemon n
 | P16 | rechazo con registro durable y fallo de registro | registro persistido; fallo → denegar nuevas acciones | integración — NOT_RUN |
 
 El código `DENIED`/`ERROR` concreto de cada rechazo es el del handler de laboratorio.
+
+La revisión posterior del broker niega ACK y estado de operación si la política indica ledger_fault. Véase docs/xps-authz-lab-evidence.md para el alcance exacto de las pruebas.

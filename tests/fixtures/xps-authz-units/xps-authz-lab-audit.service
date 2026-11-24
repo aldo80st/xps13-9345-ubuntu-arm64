@@ -1,0 +1,16 @@
+# Fixture de laboratorio. NO INSTALAR NI ACTIVAR.
+[Unit]
+Description=XPS AUTHZ lab fixture - read-only module audit
+ConditionPathExists=!/usr/bin/true
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/true
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallFilter=~@module
