@@ -2,7 +2,7 @@
 
 ## Decisiones aceptadas
 
-ADR-001, contrato revisión 1. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
+ADR-001, contrato revisión 2. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
 
 ## Milestones
 
@@ -19,6 +19,19 @@ ADR-001, contrato revisión 1. XPS-03; AGENTS.md y #58 gobiernan. No instalar el
 ## Restricciones transversales
 
 ADR-001: separar autoridad de identidad; proteger código, políticas y evidencias; registrar ID, hashes y resultados. Consumir antes de efectos; un efecto admitido por vez; recuperación prioritaria. No autorizar intérpretes o scripts de home como root. Ensayar cambios de kernel, artefacto, procesos ocupados, timeout y pérdida de sesión. No heredar credenciales personales. Ingeniería LUCIFER01, aceptación XPS; no simular aislamiento usando canal administrativo. Registrar gates en #58; distinguir PASS estático, NOT_RUN, TECHNICAL_BLOCKED y HUMAN_REQUIRED.
+
+## Gates de corrección M0 / M4 (revisión 2)
+
+| Gate | Prueba negativa / aceptación |
+|---|---|
+| G-ID | Desde cada MCP y el canal heredado, probar ausencia de escalamiento por grupos, sockets de Docker/LXD, sesión/bus, archivos/credenciales del propietario y gestión de servicios; si existe ruta administrativa accesible, M3/M5 NO_GO. Rollback no restablece esa ruta; conservar consola local. |
+| G-LEASE | Simular reloj BOOTTIME, expiración entre admisión y compromiso, revocación concurrente, reinicio de controlador, nuevo boot, duplicación de solicitudes. No efectos nuevos sin lease vigente; consumo durable, no devuelto por fallo. |
+| G-THERM | Expiración/revocación durante carga, sensor ausente o umbral; observar parada en hasta 2 s en host responsivo con muestreo objetivo 250 ms y supervisor con límite de trabajador 12 s; nunca afirmar tiempo real. |
+| G-LEDGER | Fallo de escritura/fsync, disco lleno, corte antes/después del consumo, permisos y manipulación. Recibo durable antes de efectos y resultado correlacionado; fallo niega operaciones nuevas, no cancela recuperación de seguridad pendiente. |
+| G-R0 | Marcador durable antes de descargar; supervisor recupera módulo oficial tras caída del ejecutor/controlador, desconexión o timeout. Presupuesto de fase/restauración alineado. No reintentar descarga. Si falla carga o smoke, conservar marcador y bloqueo. Verificar stock y smoke 120 cuadros antes de quitarlo. Boot distinto: reconciliación local sin carga automática. |
+| G-AUDIT | Auditoría lee los archivos necesarios sin CAP_SYS_MODULE ni syscalls de carga/descarga; comprobar ambos efectos negativos en laboratorio, no ejecutar carga de prueba en XPS. Recibo durable obligatorio. |
+
+Los gates precisan la decisión aceptada sin ampliar catálogo. M2 se implementa aislado; M3/M5 no habilitan acceso hasta completar las negativas. M6 requiere propietario autenticado, preparación física, grant vigente; no reinicio ni candidato.
 
 ## No objetivos
 

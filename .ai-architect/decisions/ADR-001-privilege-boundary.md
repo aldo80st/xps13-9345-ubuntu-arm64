@@ -1,6 +1,6 @@
 ---
 schema_version: "1.0.0"
-revision: 1
+revision: 2
 decision:
   id: ADR-001
   title: Separación de identidades y autoridad privilegiada acotada
@@ -35,6 +35,9 @@ decision:
     - Pruebas negativas de rutas administrativas alternativas desde los conectores agente, grupos, sockets y credenciales.
     - Auditoría solo lectura con acceso a archivos de módulos; R0 exclusivamente oficial, recuperación sin reinicio automático.
     - Prueba térmica sin privilegios, límites y aborto comprobados.
+    - Antes de efectos, consumo y recibo de admisión durables; fallo de registro niega nuevas acciones. Recuperación de seguridad ya comprometida no se bloquea por fallo de registro.
+    - La revocación y caducidad niegan nuevas acciones y detienen térmica activa; R0 comprometido solo restaura el módulo oficial, no permite otra descarga.
+    - Marcador durable previo a descarga; comprobar identidad y prueba de 120 cuadros para desbloquear. Si cambia boot, bloquear y reconciliar sin cargar automáticamente.
   supersedes: []
 ---
 
@@ -45,3 +48,7 @@ Aceptado el 2026-11-24. No es grant operativo ni permiso de instalación.
 OPT-001: piloto v1 con identidad administrativa compartida; descartado por falta de frontera efectiva. OPT-002: controlador local con identidad dedicada y operaciones fijas; seleccionado. OPT-003: servicio remoto de administración privilegiada general; descartado por complejidad y superficie innecesarias.
 
 Conservar política inicial de 20 minutos, cinco auditorías, un R0 y una térmica. Recuperación incluida exclusivamente para R0 admitido. Excluir arranque, firmware, reinicios y módulos experimentales. Mantener cuenta del propietario y rollback de migración sin devolver acceso administrativo a agentes. Ver contrato y plan.
+
+## Precisión de aceptación (revisión 2)
+
+Se mantiene OPT-002. M3 debe probar desde ambas rutas MCP disponibles al agente que ninguna conserva acceso administrativo, incluso el canal heredado; el rollback no reabre esa ruta. La política usa reloj BOOTTIME y boot ID, compromiso serializado con revocación y evidencia durable antes de efectos. Ninguna acción nueva después de vencer; térmica activa debe parar dentro de la tolerancia comprobada. Recuperación R0 mantiene marcador hasta comprobar módulo oficial y smoke de 120 cuadros, con reconciliación bloqueante si cambia el boot. Ante fallo del registro se deniega una acción nueva, pero nunca se abandona una restauración ya necesaria. Estas precisiones responden a la revisión independiente, no agregan autoridad.
