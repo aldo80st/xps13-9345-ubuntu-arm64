@@ -2,7 +2,7 @@
 
 ## Decisiones aceptadas
 
-ADR-001 y ADR-002, contrato revisión 3. Los hitos M0–M6 de AUTHZ permanecen independientes. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
+ADR-001 y ADR-002, contrato revisión 4. Los hitos M0–M6 de AUTHZ permanecen independientes. XPS-03; AGENTS.md y #58 gobiernan. No instalar el piloto v1. Diseño aprobado no es autorización operativa.
 
 ## Milestones
 
@@ -56,3 +56,6 @@ IDs P0–P7 separados de AUTHZ. No ejecutar paquetes de aplicación por la sola 
 | P7 | Activación futura revisada de asignación con Paseo existente. | P1–P6 PASS, Q-003/Q-004 resueltas por modalidad, revisión independiente, aceptación explícita de transición AGENTS.md, rollback a coordinación manual sin duplicar paquetes. |
 
 Restricciones: presupuesto adicional 0 MXN; cuotas de suscripción no equivalen a tokens API; aplicar todos los límites sin doble conteo. Reservas iniciales pagadas 65/25/10 y gratuitas 85/10/5, ajustables solo con evidencia y aprobación. No confundir disponibilidad anunciada con despacho confirmado. No usar otros proyectos como banco de pruebas ni introducir infraestructura redundante. Mantener autorización hardware ADR-001 intacta, incluido G-ID. No activar facturación ni comprar créditos. Datos y cuotas desconocidos se registran como tales. La coordinación manual continúa hasta P7.
+
+### Precisión de calidad (revisión 4)
+P1: identificar versión y arnés realmente disponibles; conservar referencias externas fechadas y condiciones de evaluación. P2: taxonomía con implementación, pruebas, refactorización, comprensión, diagnóstico, seguridad y herramientas. P3: probar precedencia de calidad sobre gratuidad cuando existe diferencia material y umbral de calidad; si candidatos equivalentes dentro de incertidumbre, elegir menor coste de oportunidad. P6: comparar paquetes equivalentes, resultados independientes, consumo y retrabajo; no promover un modelo por ranking genérico. P7: mantener presupuesto cero y gates de ADR-001. Ningún benchmark autoriza instalar, despachar o facturar.

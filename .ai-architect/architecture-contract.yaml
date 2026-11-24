@@ -1,5 +1,5 @@
 schema_version: "1.0.0"
-revision: 3
+revision: 4
 scope: xps-authz-v1-1-y-asignacion-presupuestaria-v0-3
 architecture_style: controlador-local-determinista-con-frontera-de-privilegios
 quality_attributes:
@@ -138,6 +138,8 @@ required_practices:
   - "Reservar todos los límites aplicables atómicamente antes de un futuro despacho autorizado. Identificador estable por paquete e intento; estados propuesto/reservado/despacho incierto/confirmado/terminal. Reconciliar con Paseo antes de repetir o liberar reserva ante respuesta ausente; no duplicar escritores ni trabajo. Transferir checkpoint al reasignar."
   - "Registrar por modelo, versión, modalidad, clase y esfuerzo: resultado aceptado, primera revisión, retrabajo, defectos detectados/escapados, duración y consumo observado o desconocido. Separar fallos del entorno de desempeño. Revisar calibración con muestra suficiente y aprobación del propietario; no autoeditar política."
   - "Modo sombra inicial sin iniciar, cancelar ni reasignar agentes, sin reservar cuota externa ni modificar privilegios. Comparar recomendaciones con decisiones existentes, pruebas simuladas y replay. Activación operativa solo tras aceptación y transición explícita de AGENTS.md; revisor distinto del implementador en cambios críticos."
+  - "Prioridad de calidad por clase de tarea: entre candidatos admisibles, elegir el modelo, versión, arnés y esfuerzo con mejor evidencia de aceptación y fiabilidad para el riesgo y complejidad del paquete. Establecer umbral de calidad y tratar diferencias dentro de incertidumbre como equivalentes; entre equivalentes optimizar cuota, tiempo y retrabajo. No degradar calidad material solo por gratuidad, ni romper presupuesto cero o gates por calidad."
+  - "Mantener catálogo dinámico de evidencia externa por benchmark, versión, fecha, conjunto de tareas, modelo, esfuerzo, arnés, métricas e incertidumbre. Comparar únicamente resultados compatibles; usar evaluaciones externas como referencia inicial y pruebas locales comparables como evidencia específica. Actualizar cuando cambie modelo, arnés o benchmark; no congelar ranking universal ni asignar resultados a otra variante."
 prohibited_practices:
   - Shell root, argumentos o rutas arbitrarias, comodines, renovación por agente o credenciales administrativas compartidas.
   - Arranque, GRUB, EFI, firmware, Secure Boot, BitLocker, particiones, reinicio, módulos experimentales y ajustes térmicos persistentes.

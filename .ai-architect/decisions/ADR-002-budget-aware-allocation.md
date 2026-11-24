@@ -1,6 +1,6 @@
 ---
 schema_version: "1.0.0"
-revision: 1
+revision: 2
 decision:
   id: ADR-002
   title: Asignación adaptativa consciente de cuotas y presupuesto
@@ -33,6 +33,8 @@ decision:
     - Despacho incierto conserva reserva y se reconcilia antes de reasignar.
     - Modo sombra no despacha ni altera agentes, privilegios o configuración.
     - Activación futura requiere pruebas de concurrencia, revisión independiente, aceptación y rollback.
+    - La calidad técnica específica precede al ahorro de cuota entre candidatos admisibles; preferir gratuitos cuando la calidad esperada sea comparable. No sacrificar seguridad ni presupuesto cero.
+    - Cada ranking conserva procedencia, modelo, versión, esfuerzo, arnés, tarea, fecha e incertidumbre; pruebas locales calibran la evidencia externa.
   supersedes: []
 ---
 
@@ -43,3 +45,6 @@ Aceptado por el propietario el 2026-11-24 tras aprobar v0.3. Complementa ADR-001
 OPT-004: asignación manual con roles fijos; limitada frente a cambios de cuota y clase de tarea. OPT-005: ranking ponderado individual v0.1; insuficiente para límites compartidos y dependencias. OPT-006: política determinista de admisibilidad, asignación colectiva, presupuestos y adaptación; seleccionado.
 
 Usar primero herramientas deterministas cuando sean suficientes y preferir modalidades gratuitas aptas; aprovechar capacidad pagada próxima a renovar sin consumir por consumir. Reservas iniciales propuestas en v0.3: pagadas 65/25/10, gratuitas 85/10/5 para ejecución, revisión y contingencia. Registrar unidad real de cada límite, tokens observables por separado, incertidumbre y resultados aceptados. Cero gasto adicional. Implantación inicial observacional; no habilitar control automático hasta P7. El ámbito actual es exclusivamente XPS.
+
+## Precisión de aceptación (revisión 2)
+El propietario añadió prioridad explícita de idoneidad técnica por tarea. La preferencia por modalidades gratuitas opera entre alternativas de calidad comparable; no desplaza un candidato materialmente superior si es admisible y tiene cuota. Mantener referencias externas actuales como punto de partida, distinguir variantes y herramientas, y sustituir prioridades provisionales con evidencia propia comparable. No cambiar ADR-001 ni activar el modo operativo.
