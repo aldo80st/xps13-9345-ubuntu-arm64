@@ -252,4 +252,3 @@ def handle_connection(
             # failure and never triggers a replay; only the ledger decides.
             LOG.warning("XPS AUTHZ response delivery failed")
         return reply
-

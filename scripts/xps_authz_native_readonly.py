@@ -471,4 +471,3 @@ def collect_native_readonly() -> dict:
         "uid": os.geteuid(),
         "privileged_audit_acceptance": "NOT_RUN",
     }
-
