@@ -1,0 +1,16 @@
+# Production candidate socket unit for M3-DIAGNOSTIC (not installed/activated).
+[Unit]
+Description=XPS AUTHZ v1.1 diagnostic socket (no privileged effects)
+
+[Socket]
+ListenStream=/run/xps-authz-diagnostic.sock
+Accept=yes
+MaxConnections=16
+MaxConnectionsPerSource=8
+SocketUser=root
+SocketGroup=xps-agent
+SocketMode=0660
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

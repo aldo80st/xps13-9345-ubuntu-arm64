@@ -1,0 +1,39 @@
+# Production candidate instantiated service unit for M3-DIAGNOSTIC (not installed/activated).
+[Unit]
+Description=XPS AUTHZ v1.1 diagnostic responder (per-connection, unprivileged)
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 -I -B /usr/local/libexec/xps-authz-diagnostic/xps_authz_diagnostic.py
+StandardInput=socket
+StandardOutput=journal
+StandardError=journal
+DynamicUser=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+SystemCallArchitectures=native
+SystemCallFilter=~@privileged @resources @module @mount @raw-io @reboot @swap @obsolete @debug
+RuntimeMaxSec=5s
+TimeoutStopSec=2s
+MemoryMax=64M
+TasksMax=4
+CPUQuota=25%
+UMask=0077
