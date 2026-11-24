@@ -22,7 +22,11 @@ def _reply_from_status(status: object, *, result: Result = Result.STATUS,
                        expected_action: str | None = None,
                        after_seq: int | None = None) -> Reply:
     """Expose only bounded, typed data from the trusted policy snapshot."""
-    if type(status) is not dict or status.get("state") != "ok":
+    if (type(status) is not dict or status.get("state") != "ok"
+            or status.get("reason") == "ledger_fault"):
+        # Visible bytes are not evidence of durable acceptance when the
+        # policy's storage gate reports uncertainty. Never ACK or expose an
+        # operation outcome from this snapshot; the owner must reconcile.
         return Reply(Result.ERROR, Reason.POLICY_UNAVAILABLE, recovery_pending=True)
     remaining = status.get("uses_left")
     recovery = status.get("recovery_required")

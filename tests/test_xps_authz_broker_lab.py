@@ -36,6 +36,15 @@ class StatusTests(unittest.TestCase):
             r = _reply_from_status(s)
             self.assertIs(r.result, Result.ERROR)
             self.assertTrue(r.recovery_pending)
+    def test_faulted_ledger_cannot_ack_visible_receipt(self):
+        status = snapshot("a"*32, seq=3)
+        status.update(reason="ledger_fault", new_actions="denied")
+        for result in (Result.STATUS, Result.ACCEPTED):
+            r = _reply_from_status(status, result=result)
+            self.assertIs(r.result, Result.ERROR)
+            self.assertTrue(r.recovery_pending)
+            self.assertIsNone(r.operation_id)
+
     def test_expected_receipt_not_found(self):
         r = _reply_from_status(snapshot("a"*32), result=Result.ACCEPTED, expected_op="b"*32)
         self.assertIs(r.result, Result.ERROR)

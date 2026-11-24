@@ -1,0 +1,17 @@
+# Fixture de laboratorio. NO INSTALAR NI ACTIVAR.
+[Unit]
+Description=XPS AUTHZ lab fixture - recovery
+ConditionPathExists=!/usr/bin/true
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_MODULE
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+User=root
+Group=root
